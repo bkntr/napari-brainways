@@ -6,23 +6,12 @@ contributions:
       python_name: napari_brainways._sample_data:make_sample_data
       title: Load sample data from napari Brainways
     - id: napari-brainways.make_qwidget
-      python_name: napari_brainways._widget:ExampleQWidget
-      title: Make example QWidget
-    - id: napari-brainways.make_magic_widget
-      python_name: napari_brainways._widget:example_magic_widget
-      title: Make example magic widget
-    - id: napari-brainways.make_func_widget
-      python_name: napari_brainways._widget:example_function_widget
-      title: Make example function widget
+      python_name: napari_brainways.widget:BrainwaysUI
+      title: Make BrainwaysUI widget
   sample_data:
     - command: napari-brainways.make_sample_data
       display_name: napari Brainways
       key: unique_id.1
   widgets:
     - command: napari-brainways.make_qwidget
-      display_name: Example QWidget
-    - command: napari-brainways.make_magic_widget
-      display_name: Example Magic Widget
-    - command: napari-brainways.make_func_widget
-      autogenerate: true
-      display_name: Example Function Widget
+      display_name: BrainwaysUI

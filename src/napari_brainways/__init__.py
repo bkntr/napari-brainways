@@ -1,12 +1,11 @@
 try:
-    from ._version import version as __version__
+    from napari_brainways._version import version as __version__
 except ImportError:
     __version__ = "unknown"
-from ._sample_data import make_sample_data
-from ._widget import ExampleQWidget, example_magic_widget
+from napari_brainways._sample_data import make_sample_data
+from napari_brainways.widget import BrainwaysUI
 
 __all__ = (
     "make_sample_data",
-    "ExampleQWidget",
-    "example_magic_widget",
+    "BrainwaysUI",
 )

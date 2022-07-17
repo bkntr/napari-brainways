@@ -1,0 +1,212 @@
+from __future__ import annotations
+
+import functools
+from dataclasses import replace
+from typing import TYPE_CHECKING
+
+import napari.layers
+import numpy as np
+from brainways.pipeline.brainways_params import AtlasRegistrationParams, BrainwaysParams
+from brainways.utils.image import brain_mask, nonzero_bounding_box
+
+from napari_brainways.controllers.base import Controller
+from napari_brainways.utils import update_layer_contrast_limits
+from napari_brainways.widgets.registration_widget import RegistrationView
+
+if TYPE_CHECKING:
+    from napari_brainways.widget import BrainwaysUI
+
+
+class RegistrationController(Controller):
+    def __init__(self, ui: BrainwaysUI):
+        super().__init__(ui=ui)
+        self.widget = RegistrationView(self)
+        self.widget.hide()
+        self.input_layer: napari.layers.Image | None = None
+        self.atlas_slice_layer: napari.layers.Image | None = None
+        self._image: np.ndarray | None = None
+        self._params: BrainwaysParams | None = None
+        self._input_box = None
+        self._key_bindings = None
+
+    @property
+    def name(self) -> str:
+        return "Atlas Registration"
+
+    def register_key_bindings(self):
+        key_bindings = {
+            "Left": (
+                functools.partial(self.widget.modify_ap, value=-1),
+                "Decrease AP",
+            ),
+            "Right": (
+                functools.partial(self.widget.modify_ap, value=1),
+                "Increase AP",
+            ),
+            "Shift-Left": (
+                functools.partial(self.widget.modify_ap, value=-10),
+                "Decrease AP -10",
+            ),
+            "Shift-Right": (
+                functools.partial(self.widget.modify_ap, value=10),
+                "Increase AP +10",
+            ),
+            "Control-Left": (
+                functools.partial(self.widget.modify_hemisphere, value="left"),
+                "Left Hemisphere",
+            ),
+            "Control-Right": (
+                functools.partial(self.widget.modify_hemisphere, value="right"),
+                "Right Hemisphere",
+            ),
+            "Control-Down": (
+                functools.partial(self.widget.modify_hemisphere, value="both"),
+                "Both Hemispheres",
+            ),
+            "Control-Up": (
+                functools.partial(self.widget.modify_hemisphere, value="both"),
+                "Both Hemispheres",
+            ),
+            "Alt-Left": (
+                functools.partial(self.widget.modify_rot_horizontal, value=-1),
+                "Horizontal Rotation Left",
+            ),
+            "Alt-Right": (
+                functools.partial(self.widget.modify_rot_horizontal, value=1),
+                "Horizontal Rotation Right",
+            ),
+            "Alt-Up": (
+                functools.partial(self.widget.modify_rot_sagittal, value=-1),
+                "Sagittal Rotation Up",
+            ),
+            "Alt-Down": (
+                functools.partial(self.widget.modify_rot_sagittal, value=1),
+                "Sagittal Rotation Down",
+            ),
+            "?": (
+                self.show_help,
+                "Show Help",
+            ),
+        }
+        for key, (func, _) in key_bindings.items():
+            self.ui.viewer.bind_key(key, func, overwrite=True)
+
+        self._key_bindings = key_bindings
+
+    def show_help(self, _):
+        self.widget.show_help(key_bindings=self._key_bindings)
+
+    def unregister_key_bindings(self):
+        for key in self._key_bindings:
+            self.ui.viewer.keymap.pop(key)
+        self._key_bindings = None
+
+    @staticmethod
+    def has_current_step_params(params: BrainwaysParams) -> bool:
+        return params.atlas is not None
+
+    def pipeline_loaded(self):
+        self.widget.ap_limits = (0, self.pipeline.atlas.shape[0] - 1)
+
+    def default_params(self, image: np.ndarray, params: BrainwaysParams):
+        return self.run_model(image=image, params=params)
+
+    def run_model(self, image: np.ndarray, params: BrainwaysParams) -> BrainwaysParams:
+        atlas_registration_params = (
+            self.pipeline.atlas_registration.run_automatic_registration(image)
+        )
+        return replace(params, atlas=atlas_registration_params)
+
+    def show(
+        self,
+        params: BrainwaysParams,
+        image: np.ndarray | None = None,
+        from_ui: bool = False,
+    ):
+        self._params = params
+
+        if image is not None:
+            self._image = image
+            self._input_box = nonzero_bounding_box(brain_mask(image))
+            self.input_layer.data = image
+            update_layer_contrast_limits(self.input_layer, (0.01, 0.98))
+
+        if not from_ui:
+            self.widget.set_registration_params(
+                ap=params.atlas.ap,
+                rot_horizontal=params.atlas.rot_horizontal,
+                rot_sagittal=params.atlas.rot_sagittal,
+                hemisphere=params.atlas.hemisphere,
+            )
+
+        atlas_slice = self.pipeline.get_atlas_slice(self.params).reference.numpy()
+        self.atlas_slice_layer.data = atlas_slice
+        update_layer_contrast_limits(self.atlas_slice_layer, (0.01, 0.98))
+
+        atlas_box = self.pipeline.atlas.bounding_boxes[int(self.params.atlas.ap)]
+        input_scale = atlas_box[3] / self._input_box[3]
+        self.input_layer.scale = (input_scale, input_scale)
+
+        tx = (self._input_box[0] + self._input_box[0] * 0.1) * input_scale
+        ty = self._input_box[1] - atlas_box[1]
+        self.atlas_slice_layer.translate = (ty, tx)
+
+        if not from_ui:
+            self.ui.viewer.reset_view()
+
+    def on_params_changed(
+        self,
+        ap: float,
+        rot_horizontal: float,
+        rot_sagittal: float,
+        hemisphere: str,
+    ):
+        params = replace(
+            self._params,
+            atlas=AtlasRegistrationParams(
+                ap=ap,
+                rot_horizontal=rot_horizontal,
+                rot_sagittal=rot_sagittal,
+                hemisphere=hemisphere,
+            ),
+        )
+        self.show(params, from_ui=True)
+
+    def open(self):
+        if self._is_open:
+            return
+
+        self.widget.show()
+
+        self.input_layer = self.ui.viewer.add_image(
+            np.zeros((512, 512), np.uint8),
+            name="Input",
+        )
+        self.atlas_slice_layer = self.ui.viewer.add_image(
+            np.zeros(
+                (self.pipeline.atlas.shape[1], self.pipeline.atlas.shape[2]),
+                np.uint8,
+            ),
+            name="Atlas Slice",
+        )
+        self.input_layer.translate = (0, self.pipeline.atlas.shape[2])
+        self.register_key_bindings()
+
+        self._is_open = True
+
+    def close(self):
+        if not self._is_open:
+            return
+
+        self.widget.hide()
+        self.unregister_key_bindings()
+        self.ui.viewer.layers.remove(self.input_layer)
+        self.ui.viewer.layers.remove(self.atlas_slice_layer)
+        self.input_layer = None
+        self.atlas_slice_layer = None
+        self._params = None
+        self._is_open = False
+
+    @property
+    def params(self) -> BrainwaysParams:
+        return self._params
