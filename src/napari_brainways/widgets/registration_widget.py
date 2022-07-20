@@ -2,7 +2,7 @@ from typing import Callable, Dict, Tuple
 
 from magicgui import magicgui
 from qtpy import QtCore
-from qtpy.QtWidgets import QMessageBox, QVBoxLayout, QWidget
+from qtpy.QtWidgets import QMessageBox, QPushButton, QStyle, QVBoxLayout, QWidget
 
 
 class RegistrationView(QWidget):
@@ -45,8 +45,22 @@ class RegistrationView(QWidget):
         for widget in self.registration_params_widget.native.findChildren(QWidget):
             widget.installEventFilter(self)
 
+        self.run_model_button = QPushButton("Automatic Registration")
+        if self.controller.model_available():
+            self.run_model_button.clicked.connect(
+                self.controller.on_run_model_button_click
+            )
+        else:
+            self.run_model_button.setIcon(
+                self.style().standardIcon(QStyle.SP_MessageBoxWarning)
+            )
+            self.run_model_button.setToolTip(
+                "Automatic registration model is not installed"
+            )
+
         self.setLayout(QVBoxLayout())
         self.layout().addWidget(self.registration_params_widget.native)
+        self.layout().addWidget(self.run_model_button)
 
     def show_help(self, key_bindings: Dict[str, Tuple[Callable, str]]):
         message = "\n".join(

@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 import napari.layers
 import numpy as np
 from brainways.pipeline.brainways_params import AtlasRegistrationParams, BrainwaysParams
+from brainways.utils._imports import BRAINWAYS_REG_MODEL_AVAILABLE
 from brainways.utils.image import brain_mask, nonzero_bounding_box
 
 from napari_brainways.controllers.base import Controller
@@ -108,14 +109,29 @@ class RegistrationController(Controller):
     def pipeline_loaded(self):
         self.widget.ap_limits = (0, self.pipeline.atlas.shape[0] - 1)
 
-    def default_params(self, image: np.ndarray, params: BrainwaysParams):
-        return self.run_model(image=image, params=params)
+    def default_params(
+        self, image: np.ndarray, params: BrainwaysParams
+    ) -> BrainwaysParams:
+        if self.model_available():
+            return self.run_model(image=image, params=params)
+        else:
+            return replace(
+                params,
+                atlas=AtlasRegistrationParams(ap=self.ui.project.atlas.shape[0] // 2),
+            )
 
     def run_model(self, image: np.ndarray, params: BrainwaysParams) -> BrainwaysParams:
         atlas_registration_params = (
             self.pipeline.atlas_registration.run_automatic_registration(image)
         )
         return replace(params, atlas=atlas_registration_params)
+
+    def on_run_model_button_click(self):
+        params = self.run_model(image=self._image, params=self._params)
+        self.show(params, from_ui=True)
+
+    def model_available(self) -> bool:
+        return BRAINWAYS_REG_MODEL_AVAILABLE
 
     def show(
         self,
