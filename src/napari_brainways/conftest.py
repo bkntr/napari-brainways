@@ -30,7 +30,7 @@ from pytest import fixture
 from pytestqt.qtbot import QtBot
 from qtpy.QtWidgets import QApplication
 
-from napari_brainways.utils import worker_join
+from napari_brainways.test_utils import worker_join
 from napari_brainways.widget import BrainwaysUI
 
 

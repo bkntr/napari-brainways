@@ -12,8 +12,7 @@ from pytest import fixture
 from pytestqt.qtbot import QtBot
 
 from napari_brainways.controllers.base import Controller
-from napari_brainways.test_utils import randomly_modified_params
-from napari_brainways.utils import worker_join
+from napari_brainways.test_utils import randomly_modified_params, worker_join
 from napari_brainways.widget import BrainwaysUI
 
 

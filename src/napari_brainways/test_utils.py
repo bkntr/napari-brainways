@@ -1,8 +1,12 @@
+from __future__ import annotations
+
 import random
 from dataclasses import replace
 
 import numpy as np
 from brainways.pipeline.brainways_params import BrainwaysParams, TPSTransformParams
+from napari.qt.threading import FunctionWorker
+from pytestqt.qtbot import QtBot
 
 
 def randomly_modified_params(params: BrainwaysParams):
@@ -31,3 +35,9 @@ def randomly_modified_params(params: BrainwaysParams):
         cell=modified_cell,
     )
     return modified_params
+
+
+def worker_join(worker: FunctionWorker | None, qtbot: QtBot):
+    if worker is not None:
+        with qtbot.waitSignal(worker.finished, timeout=60000) as blocker:
+            blocker.connect(worker.errored)

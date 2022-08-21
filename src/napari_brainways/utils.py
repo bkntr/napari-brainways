@@ -4,9 +4,7 @@ from dataclasses import fields
 from typing import Tuple
 
 import numpy as np
-from napari._qt.qthreading import FunctionWorker
 from napari.layers import Image
-from pytestqt.qtbot import QtBot
 
 
 def update_layer_contrast_limits(
@@ -49,9 +47,3 @@ def dataclass_eq(dc1, dc2) -> bool:
         array_safe_eq(getattr(dc1, field_name), getattr(dc2, field_name))
         for field_name in fields_names
     )
-
-
-def worker_join(worker: FunctionWorker | None, qtbot: QtBot):
-    if worker is not None:
-        with qtbot.waitSignal(worker.finished, timeout=60000) as blocker:
-            blocker.connect(worker.errored)
