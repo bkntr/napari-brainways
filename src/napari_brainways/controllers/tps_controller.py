@@ -87,13 +87,8 @@ class TpsController(Controller):
             self._next_params = []
             self._prev_params = []
 
-            self.input_layer.data = image
-            update_layer_contrast_limits(self.input_layer)
-
             atlas_slice = self.pipeline.get_atlas_slice(params)
             self.atlas_layer.data = annotation_outline(atlas_slice.annotation).numpy()
-
-            self.ui.viewer.reset_view()
 
         with self.points_input_layer.events.data.blocker():
             np_pts = params.tps.points_src[:, ::-1]
@@ -108,6 +103,10 @@ class TpsController(Controller):
             image=self._image, params=params, until_step=PipelineStep.TPS
         )
         self.input_layer.data = registered_image
+
+        if image is not None:
+            update_layer_contrast_limits(self.input_layer)
+            self.ui.viewer.reset_view()
 
     def open(self) -> None:
         if self._is_open:
@@ -211,6 +210,7 @@ class TpsController(Controller):
 
     def _run_elastix_returned(self, params: BrainwaysParams):
         self.show(params, from_ui=True)
+        self.ui.widget.hide_progress_bar()
 
     def run_elastix_async(self) -> FunctionWorker:
         return self.ui.do_work_async(

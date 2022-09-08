@@ -81,6 +81,7 @@ class BrainwaysUI(QWidget):
         if self.project is not None:
             self.save_project()
             self.current_step.close()
+            self.widget.set_step(0)
         self._current_valid_document_index = 0
         self._current_step_index = 0
 
@@ -141,6 +142,7 @@ class BrainwaysUI(QWidget):
         # self.widget.hide_progress_bar()
 
     def open_project_async(self, path: Path) -> FunctionWorker:
+        self.reset()
         return self.do_work_async(
             self._open_project,
             return_callback=self._on_project_opened,
@@ -149,7 +151,6 @@ class BrainwaysUI(QWidget):
         )
 
     def _open_project(self, path: Path):
-        self.reset()
         yield "Opening project..."
         self.project = BrainwaysProject.open(path)
         yield f"Loading '{self.project.settings.atlas}' atlas..."
@@ -236,12 +237,13 @@ class BrainwaysUI(QWidget):
         self,
         step_index: int,
         force: bool = False,
+        save_project: bool = True,
         run_async: bool = True,
     ) -> FunctionWorker | None:
         if not force and self._current_step_index == step_index:
             return
-
-        self.save_project()
+        if save_project:
+            self.save_project()
         self.current_step.close()
         self._current_step_index = step_index
         if run_async:
