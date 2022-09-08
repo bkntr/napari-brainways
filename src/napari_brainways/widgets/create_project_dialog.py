@@ -11,8 +11,8 @@ from brainways.project.brainways_project_settings import (
     ProjectSettings,
 )
 from brainways.utils.image import resize_image
-from brainways.utils.io import ImagePath
-from brainways.utils.io.readers import get_scenes
+from brainways.utils.io_utils import ImagePath
+from brainways.utils.io_utils.readers import get_scenes
 from brainways.utils.paths import ANNOTATE_V1_1_ROOT
 from qtpy import QtCore
 from qtpy.QtGui import QImage, QPixmap
@@ -106,6 +106,7 @@ class CreateProjectDialog(QDialog):
                 self.add_document_row(doc)
             self.project_location_line_edit.setText(str(self.project.project_path))
             self.atlases_combobox.setCurrentText(self.project.settings.atlas)
+            self.channels_combobox.setCurrentIndex(self.project.settings.channel)
             self.create_project_button.setText("Done")
         else:
             self.project = BrainwaysProject(
@@ -131,7 +132,7 @@ class CreateProjectDialog(QDialog):
 
     def get_image_widget(self, document) -> QWidget:
         image = self.project.read_lowres_image(document)
-        thumbnail = resize_image(image, size=(128, 128), keep_aspect=True)
+        thumbnail = resize_image(image, size=(256, 256), keep_aspect=True)
         thumbnail = np.tile(thumbnail[..., None], [1, 1, 3]).astype(np.float32)
         if document.ignore:
             thumbnail[..., [1, 2]] *= 0.3

@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 from brainways.pipeline.brainways_params import BrainwaysParams
 from brainways.project.brainways_project_settings import ProjectDocument
-from brainways.utils.io import ImagePath
+from brainways.utils.io_utils import ImagePath
 from pytest import fixture
 from pytestqt.qtbot import QtBot
 

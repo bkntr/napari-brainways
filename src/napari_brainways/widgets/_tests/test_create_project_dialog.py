@@ -7,7 +7,7 @@ from brainways.project.brainways_project_settings import (
     ProjectSettings,
 )
 from brainways.utils.image import ImageSizeHW
-from brainways.utils.io import ImagePath
+from brainways.utils.io_utils import ImagePath
 from pytest import fixture
 from pytestqt.qtbot import QtBot
 from qtpy.QtWidgets import QCheckBox

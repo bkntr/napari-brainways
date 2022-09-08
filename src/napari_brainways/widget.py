@@ -78,6 +78,9 @@ class BrainwaysUI(QWidget):
         )
 
     def reset(self):
+        if self.project is not None:
+            self.save_project()
+            self.current_step.close()
         self._current_valid_document_index = 0
         self._current_step_index = 0
 
@@ -88,7 +91,7 @@ class BrainwaysUI(QWidget):
 
     def _run_workflow_single_doc(self, doc_i: int) -> None:
         raise NotImplementedError()
-        # reader = brainways.utils.io.readers.get_reader(self.documents[doc_i].path)
+        # reader = brainways.utils.io_utils.readers.get_reader(self.documents[doc_i].path)
         # transform = self.project.pipeline.get_image_to_atlas_transform(doc_i, reader)
         # cell_detector_result = None
         # document = self.documents[doc_i]

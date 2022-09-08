@@ -201,7 +201,6 @@ class WorkflowView(QWidget):
         result = dialog.exec()
         if result == QDialog.DialogCode.Rejected:
             return
-        self.controller.project.documents = dialog.documents
         self.controller.set_document_index_async(
             image_index=0, force=True, persist_current_params=False
         )

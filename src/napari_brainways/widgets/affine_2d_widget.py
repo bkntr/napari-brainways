@@ -33,14 +33,14 @@ class Affine2DWidget(QWidget):
             sx={
                 "label": "Horizontal Scale",
                 "widget_type": "FloatSlider",
-                "min": 0.25,
-                "max": 2,
+                "min": 0.01,
+                "max": 3,
             },
             sy={
                 "label": "Vertical Scale",
                 "widget_type": "FloatSlider",
-                "min": 0.25,
-                "max": 2,
+                "min": 0.01,
+                "max": 3,
             },
         )
         self.params_widget.native.layout().setContentsMargins(0, 0, 0, 0)
