@@ -21,6 +21,7 @@ class Affine2DController(Controller):
     def __init__(self, ui: BrainwaysUI):
         super().__init__(ui=ui)
         self._image: np.ndarray | None = None
+        self._atlas_slice: np.ndarray | None = None
         self._params: BrainwaysParams | None = None
         self.input_layer = None
         self.atlas_slice_layer = None
@@ -35,59 +36,59 @@ class Affine2DController(Controller):
     def register_key_bindings(self):
         key_bindings = {
             "Left": (
-                functools.partial(self.keybind_modify_params, tx=-1),
+                functools.partial(self.keybind_modify_params, tx=1),
                 "Move Left",
             ),
             "Right": (
-                functools.partial(self.keybind_modify_params, tx=1),
+                functools.partial(self.keybind_modify_params, tx=-1),
                 "Move Right",
             ),
             "Up": (
-                functools.partial(self.keybind_modify_params, ty=-1),
+                functools.partial(self.keybind_modify_params, ty=1),
                 "Move Up",
             ),
             "Down": (
-                functools.partial(self.keybind_modify_params, ty=1),
+                functools.partial(self.keybind_modify_params, ty=-1),
                 "Move Down",
             ),
             "Shift-Left": (
-                functools.partial(self.keybind_modify_params, tx=-10),
+                functools.partial(self.keybind_modify_params, tx=10),
                 "Move Left x10",
             ),
             "Shift-Right": (
-                functools.partial(self.keybind_modify_params, tx=10),
+                functools.partial(self.keybind_modify_params, tx=-10),
                 "Move Right x10",
             ),
             "Shift-Up": (
-                functools.partial(self.keybind_modify_params, ty=-10),
+                functools.partial(self.keybind_modify_params, ty=10),
                 "Move Up x10",
             ),
             "Shift-Down": (
-                functools.partial(self.keybind_modify_params, ty=10),
+                functools.partial(self.keybind_modify_params, ty=-10),
                 "Move Down x10",
             ),
             "Control-Left": (
-                functools.partial(self.keybind_modify_params, angle=-1),
+                functools.partial(self.keybind_modify_params, angle=1),
                 "Rotate Left",
             ),
             "Control-Right": (
-                functools.partial(self.keybind_modify_params, angle=1),
+                functools.partial(self.keybind_modify_params, angle=-1),
                 "Rotate Right",
             ),
             "Alt-Left": (
-                functools.partial(self.keybind_modify_params, sx=-0.01),
+                functools.partial(self.keybind_modify_params, sx=0.01),
                 "Decrease Horizontal Scale",
             ),
             "Alt-Right": (
-                functools.partial(self.keybind_modify_params, sx=0.01),
+                functools.partial(self.keybind_modify_params, sx=-0.01),
                 "Increase Horizontal Scale",
             ),
             "Alt-Up": (
-                functools.partial(self.keybind_modify_params, sy=0.01),
+                functools.partial(self.keybind_modify_params, sy=-0.01),
                 "Increase Horizontal Scale",
             ),
             "Alt-Down": (
-                functools.partial(self.keybind_modify_params, sy=-0.01),
+                functools.partial(self.keybind_modify_params, sy=0.01),
                 "Decrease Horizontal Scale",
             ),
             "?": (self.show_help, "Show Help"),
@@ -107,7 +108,7 @@ class Affine2DController(Controller):
 
     @staticmethod
     def has_current_step_params(params: BrainwaysParams) -> bool:
-        return params.atlas is not None
+        return params.affine is not None
 
     def default_params(self, image: np.ndarray, params: BrainwaysParams):
         return self.run_model(image=image, params=params)
@@ -127,10 +128,10 @@ class Affine2DController(Controller):
         self._params = params
         if image is not None:
             self._image = image
-            atlas_slice = self.pipeline.get_atlas_slice(params)
-            self.atlas_slice_layer.data = annotation_outline(
-                atlas_slice.annotation
-            ).numpy()
+            self._atlas_slice = (
+                self.pipeline.get_atlas_slice(params).annotation.float().numpy()
+            )
+            self.atlas_slice_layer.data = annotation_outline(self._atlas_slice)
             self.widget.set_ranges(
                 tx=(-image.shape[1], image.shape[1]),
                 ty=(-image.shape[0], image.shape[0]),
@@ -148,11 +149,18 @@ class Affine2DController(Controller):
                 sy=params.affine.sy,
             )
 
-        registered_image = self.pipeline.transform_image(
-            image=self._image, params=params, until_step=PipelineStep.AFFINE_2D
+        transform = self.pipeline.get_image_to_atlas_transform(
+            brainways_params=params,
+            lowres_image_size=self._image.shape,
+            until_step=PipelineStep.AFFINE_2D,
         )
 
-        self.input_layer.data = registered_image
+        transformed_atlas_slice = transform.inv().transform_image(
+            image=self._atlas_slice,
+            output_size=self._image.shape,
+            mode="nearest",
+        )
+        self.atlas_slice_layer.data = annotation_outline(transformed_atlas_slice)
 
     def open(self) -> None:
         if self._is_open:
@@ -185,6 +193,7 @@ class Affine2DController(Controller):
         self.atlas_slice_layer = None
 
         self._image = None
+        self._atlas_slice = None
         self._params = None
         self._is_open = False
 
