@@ -186,7 +186,12 @@ class WorkflowView(QWidget):
         return widget, header
 
     def on_create_project_clicked(self, _=None):
-        dialog = CreateProjectDialog(self)
+        path = QFileDialog.getExistingDirectory(
+            self,
+            "Create Brainways Project",
+            str(Path.home()),
+        )
+        dialog = CreateProjectDialog(self, path=Path(path))
         result = dialog.exec()
         if result == QDialog.DialogCode.Rejected:
             return

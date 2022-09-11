@@ -38,6 +38,7 @@ class CreateProjectDialog(QDialog):
     def __init__(
         self,
         parent: Optional[QWidget] = None,
+        path: Optional[Path] = None,
         project: Optional[BrainwaysProject] = None,
     ):
         super().__init__(parent)
@@ -110,7 +111,9 @@ class CreateProjectDialog(QDialog):
                 settings=ProjectSettings(
                     atlas=self.atlases_combobox.currentText(), channel=0
                 ),
+                project_path=path,
             )
+            self.project_location_line_edit.setText(str(self.project.project_path))
             self.atlases_combobox.setCurrentIndex(0)
 
     def create_table(self) -> QTableWidget:
