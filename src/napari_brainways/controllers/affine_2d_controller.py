@@ -103,7 +103,7 @@ class Affine2DController(Controller):
             self.ui.viewer.keymap.pop(key)
         self._key_bindings = None
 
-    def show_help(self, _):
+    def show_help(self, _=None):
         self.widget.show_help(key_bindings=self._key_bindings)
 
     @staticmethod

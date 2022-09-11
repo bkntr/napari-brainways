@@ -56,7 +56,7 @@ class TpsController(Controller):
             self.ui.viewer.keymap.pop(key)
         self._key_bindings = None
 
-    def show_help(self, _):
+    def show_help(self, _=None):
         self.widget.show_help(key_bindings=self._key_bindings)
 
     @staticmethod
@@ -183,11 +183,11 @@ class TpsController(Controller):
 
         return replace(params, tps=TPSTransformParams(points.copy(), points.copy()))
 
-    def set_points_mode_add(self, _):
+    def set_points_mode_add(self, _=None):
         self.ui.viewer.layers.selection = {self.points_atlas_layer}
         self.points_atlas_layer.mode = "add"
 
-    def set_points_mode_select(self, _):
+    def set_points_mode_select(self, _=None):
         self.ui.viewer.layers.selection = {self.points_atlas_layer}
         self.points_atlas_layer.mode = "select"
 

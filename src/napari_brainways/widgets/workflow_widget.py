@@ -186,14 +186,14 @@ class WorkflowView(QWidget):
                 inner_layout.addWidget(controller.widget)
         return widget, header
 
-    def on_create_project_clicked(self, _):
+    def on_create_project_clicked(self, _=None):
         dialog = CreateProjectDialog(self)
         result = dialog.exec()
         if result == QDialog.DialogCode.Rejected:
             return
         self.controller.open_project_async(dialog.project.project_path)
 
-    def on_edit_project_clicked(self, _):
+    def on_edit_project_clicked(self, _=None):
         dialog = CreateProjectDialog(
             self,
             project=self.controller.project,
@@ -206,7 +206,7 @@ class WorkflowView(QWidget):
         )
         self.on_project_changed()
 
-    def on_open_project_clicked(self, _):
+    def on_open_project_clicked(self, _=None):
         kwargs = {}
         if "SNAP" in os.environ:
             kwargs["options"] = QFileDialog.DontUseNativeDialog
@@ -232,10 +232,10 @@ class WorkflowView(QWidget):
     def select_image(self, image_index: int):
         self.controller.set_document_index_async(image_index - 1)
 
-    def on_prev_image_clicked(self, _):
+    def on_prev_image_clicked(self, _=None):
         self.controller.prev_image()
 
-    def on_next_image_clicked(self, _):
+    def on_next_image_clicked(self, _=None):
         self.controller.next_image()
 
     def set_step(self, step_index: int):
@@ -246,23 +246,23 @@ class WorkflowView(QWidget):
         self._step_buttons[step_index].setChecked(True)
         self._step_controls_header.setText(f"<b>{current_step.name} Parameters:</b>")
 
-    def on_step_clicked(self, _, step_index: int):
+    def on_step_clicked(self, _=None, step_index: int = 0):
         self.set_step(step_index)
         self.controller.set_step_index_async(step_index)
 
-    def on_prev_step_clicked(self, _):
+    def on_prev_step_clicked(self, _=None):
         self.controller.prev_step()
 
-    def on_next_step_clicked(self, _):
+    def on_next_step_clicked(self, _=None):
         self.controller.next_step()
 
-    def on_run_workflow_clicked(self, _):
+    def on_run_workflow_clicked(self, _=None):
         self.controller.run_workflow_async()
 
-    def on_save_button_clicked(self, _):
+    def on_save_button_clicked(self, _=None):
         self.controller.save_project()
 
-    def on_export_clicked(self, _):
+    def on_export_clicked(self, _=None):
         kwargs = {}
         if "SNAP" in os.environ:
             kwargs["options"] = QFileDialog.DontUseNativeDialog
@@ -276,7 +276,7 @@ class WorkflowView(QWidget):
         )
         self.controller.export_cells(Path(path))
 
-    def on_import_cells_clicked(self, _):
+    def on_import_cells_clicked(self, _=None):
         kwargs = {}
         if "SNAP" in os.environ:
             kwargs["options"] = QFileDialog.DontUseNativeDialog

@@ -94,7 +94,7 @@ class RegistrationController(Controller):
 
         self._key_bindings = key_bindings
 
-    def show_help(self, _):
+    def show_help(self, _=None):
         self.widget.show_help(key_bindings=self._key_bindings)
 
     def unregister_key_bindings(self):

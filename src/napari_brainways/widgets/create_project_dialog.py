@@ -266,18 +266,18 @@ class CreateProjectDialog(QDialog):
         )
         self.project.documents[document_index] = document
 
-    def on_selected_atlas_changed(self, _):
+    def on_selected_atlas_changed(self, _=None):
         self.project.settings = replace(
             self.project.settings, atlas=self.atlases_combobox.currentText()
         )
 
-    def on_selected_channel_changed(self, _):
+    def on_selected_channel_changed(self, _=None):
         new_channel = int(self.channels_combobox.currentIndex())
         self.project.settings = replace(self.project.settings, channel=new_channel)
         self.files_table.setRowCount(0)
         self.add_document_rows_async(self.project.documents)
 
-    def on_add_images_clicked(self, _):
+    def on_add_images_clicked(self, _=None):
         filenames, _ = QFileDialog.getOpenFileNames(
             self,
             "Add Image(s)",
@@ -285,7 +285,7 @@ class CreateProjectDialog(QDialog):
         )
         self.add_filenames_async(filenames)
 
-    def on_project_location_clicked(self, _):
+    def on_project_location_clicked(self, _=None):
         path, _ = QFileDialog.getSaveFileName(
             self,
             "Save Project",
@@ -294,6 +294,6 @@ class CreateProjectDialog(QDialog):
         )
         self.project_location_line_edit.setText(path)
 
-    def on_create_project_clicked(self, _):
+    def on_create_project_clicked(self, _=None):
         self.project.save(self.project_path)
         self.accept()

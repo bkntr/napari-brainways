@@ -69,16 +69,16 @@ class RegistrationView(QWidget):
         message = f"<pre>{message}</pre>"
         QMessageBox.about(self, "Keys", message)
 
-    def modify_ap(self, _, value: int):
+    def modify_ap(self, _=None, value: int = 0):
         self.registration_params_widget.ap.value += value
 
-    def modify_rot_horizontal(self, _, value: int):
+    def modify_rot_horizontal(self, _=None, value: int = 0):
         self.registration_params_widget.rot_horizontal.value += value
 
-    def modify_rot_sagittal(self, _, value: int):
+    def modify_rot_sagittal(self, _=None, value: int = 0):
         self.registration_params_widget.rot_sagittal.value += value
 
-    def modify_hemisphere(self, _, value: str):
+    def modify_hemisphere(self, _=None, value: str = "both"):
         self.registration_params_widget.hemisphere.value = value
 
     def eventFilter(self, object, event) -> bool:
