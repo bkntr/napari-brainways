@@ -82,6 +82,7 @@ class BrainwaysUI(QWidget):
             self.save_project()
             self.current_step.close()
             self.widget.set_step(0)
+            self.widget.set_image_index(1)
         self._current_valid_document_index = 0
         self._current_step_index = 0
 

@@ -58,9 +58,6 @@ class CreateProjectDialog(QDialog):
             self.on_selected_atlas_changed
         )
         self.channels_combobox = QComboBox()
-        self.channels_combobox.currentIndexChanged.connect(
-            self.on_selected_channel_changed
-        )
         self.project_location_line_edit = QLineEdit()
         self.add_images_button = QPushButton("&Add Image(s)...", self)
         self.add_images_button.clicked.connect(self.on_add_images_clicked)
@@ -230,6 +227,9 @@ class CreateProjectDialog(QDialog):
 
             if self.channels_combobox.count() == 0:
                 self.channels_combobox.addItems(get_channels(document.path.filename))
+                self.channels_combobox.currentIndexChanged.connect(
+                    self.on_selected_channel_changed
+                )
 
             progress.setValue(progress.value() + 1)
 

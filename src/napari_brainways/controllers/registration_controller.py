@@ -128,7 +128,7 @@ class RegistrationController(Controller):
 
     def on_run_model_button_click(self):
         params = self.run_model(image=self._image, params=self._params)
-        self.show(params, from_ui=True)
+        self.show(params)
 
     def model_available(self) -> bool:
         return BRAINWAYS_REG_MODEL_AVAILABLE
