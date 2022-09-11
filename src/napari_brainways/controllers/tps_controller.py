@@ -23,7 +23,7 @@ class TpsController(Controller):
     def __init__(self, ui: BrainwaysUI):
         super().__init__(ui=ui)
         self._params: BrainwaysParams | None = None
-        self._image: np.ndarray | None = None
+        self._affine_image: np.ndarray | None = None
         self.input_layer = None
         self.atlas_layer = None
         self.points_input_layer: Points | None = None
@@ -83,7 +83,9 @@ class TpsController(Controller):
 
         self._params = params
         if image is not None:
-            self._image = image
+            self._affine_image = self.pipeline.transform_image(
+                image=image, params=params, until_step=PipelineStep.AFFINE_2D
+            )
             self._next_params = []
             self._prev_params = []
 
@@ -99,8 +101,8 @@ class TpsController(Controller):
             self.points_atlas_layer.data = np_pts.copy()
             self.points_atlas_layer.selected_data = set()
 
-        registered_image = self.pipeline.transform_image(
-            image=self._image, params=params, until_step=PipelineStep.TPS
+        registered_image = self.pipeline.tps.get_transform(params.tps).transform_image(
+            image=self._affine_image, output_size=self.atlas_layer.data.shape
         )
         self.input_layer.data = registered_image
 
@@ -158,7 +160,7 @@ class TpsController(Controller):
         self.ui.viewer.layers.remove(self.atlas_layer)
         self.ui.viewer.layers.remove(self.points_input_layer)
         self.ui.viewer.layers.remove(self.points_atlas_layer)
-        self._image = None
+        self._affine_image = None
         self.input_layer = None
         self.atlas_layer = None
         self.points_input_layer = None
@@ -206,7 +208,7 @@ class TpsController(Controller):
         self.show(params=updated_params, from_ui=True)
 
     def _run_elastix(self) -> BrainwaysParams:
-        return self.run_model(self._image, self._params)
+        return self.run_model(self._affine_image, self._params)
 
     def _run_elastix_returned(self, params: BrainwaysParams):
         self.show(params, from_ui=True)
@@ -220,7 +222,9 @@ class TpsController(Controller):
         )
 
     def reset_params(self):
-        self.show(params=self.default_params(self._image, self._params), from_ui=True)
+        self.show(
+            params=self.default_params(self._affine_image, self._params), from_ui=True
+        )
 
     def previous_params(self, _=None):
         if len(self._prev_params) == 0:
