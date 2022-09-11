@@ -3,7 +3,6 @@ import os
 from pathlib import Path
 from typing import List
 
-from brainways.utils.paths import ANNOTATE_V1_1_ROOT
 from magicgui import magicgui
 from qtpy.QtWidgets import (
     QDialog,
@@ -214,7 +213,7 @@ class WorkflowView(QWidget):
         path, _ = QFileDialog.getOpenFileName(
             self,
             "Open Project",
-            str(ANNOTATE_V1_1_ROOT),
+            str(Path.home()),
             "Brainways project (*.bin)",
             **kwargs,
         )

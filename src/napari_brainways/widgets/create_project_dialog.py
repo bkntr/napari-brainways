@@ -13,7 +13,6 @@ from brainways.project.brainways_project_settings import (
 from brainways.utils.image import resize_image
 from brainways.utils.io_utils import ImagePath
 from brainways.utils.io_utils.readers import get_channels, get_scenes
-from brainways.utils.paths import ANNOTATE_V1_1_ROOT
 from napari.qt.threading import FunctionWorker, create_worker
 from qtpy import QtCore
 from qtpy.QtGui import QImage, QPixmap
@@ -281,7 +280,7 @@ class CreateProjectDialog(QDialog):
         filenames, _ = QFileDialog.getOpenFileNames(
             self,
             "Add Image(s)",
-            str(ANNOTATE_V1_1_ROOT / "images"),
+            str(Path.home()),
         )
         self.add_filenames_async(filenames)
 
