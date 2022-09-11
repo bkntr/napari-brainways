@@ -101,7 +101,7 @@ def test_save_load_project(
     worker_join(worker, qtbot)
     worker = opened_app.set_document_index_async(image_index)
     worker_join(worker, qtbot)
-    save_path = Path(tmpdir) / "test.duracell"
+    save_path = Path(tmpdir) / "test"
     docs = opened_app.project.documents
     opened_app.save_project()
     opened_app.project.documents = []
@@ -118,7 +118,7 @@ def test_save_after_run_workflow(
 ):
     worker = opened_app.run_workflow_async()
     worker_join(worker, qtbot)
-    save_path = Path(tmpdir) / "test.duracell"
+    save_path = Path(tmpdir) / "test"
     docs = opened_app.documents
     opened_app.save_project()
     opened_app.all_documents = []
