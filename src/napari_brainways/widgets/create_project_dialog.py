@@ -1,7 +1,7 @@
 import functools
 from dataclasses import replace
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional, Tuple
 
 import numpy as np
 from bg_atlasapi.list_atlases import get_atlases_lastversions
@@ -12,8 +12,9 @@ from brainways.project.brainways_project_settings import (
 )
 from brainways.utils.image import resize_image
 from brainways.utils.io_utils import ImagePath
-from brainways.utils.io_utils.readers import get_scenes
+from brainways.utils.io_utils.readers import get_channels, get_scenes
 from brainways.utils.paths import ANNOTATE_V1_1_ROOT
+from napari.qt.threading import FunctionWorker, create_worker
 from qtpy import QtCore
 from qtpy.QtGui import QImage, QPixmap
 from qtpy.QtWidgets import (
@@ -26,6 +27,7 @@ from qtpy.QtWidgets import (
     QHeaderView,
     QLabel,
     QLineEdit,
+    QProgressDialog,
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
@@ -41,6 +43,8 @@ class CreateProjectDialog(QDialog):
     ):
         super().__init__(parent)
 
+        self._add_documents_worker: Optional[FunctionWorker] = None
+
         self.setWindowTitle("Create Project")
         self.project_location_button = QPushButton("&Browse...", self)
         self.project_location_button.clicked.connect(self.on_project_location_clicked)
@@ -55,7 +59,6 @@ class CreateProjectDialog(QDialog):
             self.on_selected_atlas_changed
         )
         self.channels_combobox = QComboBox()
-        self.channels_combobox.addItems([str(i) for i in range(100)])
         self.channels_combobox.currentIndexChanged.connect(
             self.on_selected_channel_changed
         )
@@ -102,12 +105,10 @@ class CreateProjectDialog(QDialog):
 
         if project is not None:
             self.project = project
-            for doc in self.project.documents:
-                self.add_document_row(doc)
             self.project_location_line_edit.setText(str(self.project.project_path))
             self.atlases_combobox.setCurrentText(self.project.settings.atlas)
-            self.channels_combobox.setCurrentIndex(self.project.settings.channel)
             self.create_project_button.setText("Done")
+            self.add_document_rows_async(self.project.documents)
         else:
             self.project = BrainwaysProject(
                 settings=ProjectSettings(
@@ -125,20 +126,49 @@ class CreateProjectDialog(QDialog):
         table.setShowGrid(False)
         return table
 
-    def add_filename(self, filename: str) -> None:
-        for scene in range(len(get_scenes(filename))):
-            document = self.project.add_image(ImagePath(filename=filename, scene=scene))
-            self.add_document_row(document)
+    def add_filenames_async(self, filenames: List[str]) -> FunctionWorker:
+        progress = QProgressDialog(
+            "Loading image scenes...", "Cancel", 0, len(filenames), self
+        )
+        progress.setModal(True)
+        progress.setValue(0)
+        progress.setWindowTitle("Loading...")
+        progress.show()
 
-    def get_image_widget(self, document) -> QWidget:
-        image = self.project.read_lowres_image(document)
-        thumbnail = resize_image(image, size=(256, 256), keep_aspect=True)
-        thumbnail = np.tile(thumbnail[..., None], [1, 1, 3]).astype(np.float32)
-        if document.ignore:
-            thumbnail[..., [1, 2]] *= 0.3
-        else:
-            thumbnail[..., [0, 2]] *= 0.3
-        thumbnail = thumbnail.astype(np.uint8)
+        def on_work_returned(documents: List[ProjectDocument]):
+            progress.close()
+            self.add_document_rows_async(documents)
+
+        def on_work_yielded():
+            progress.setValue(progress.value() + 1)
+
+        def work():
+            documents = []
+            for filename in filenames:
+                if progress.wasCanceled():
+                    # remove added documents if operation is cancelled
+                    for document in documents:
+                        self.project.documents.remove(document)
+                    return []
+                for scene in range(len(get_scenes(filename))):
+                    documents.append(
+                        self.project.add_image(
+                            ImagePath(filename=filename, scene=scene),
+                            load_thumbnail=False,
+                        )
+                    )
+                yield
+            return documents
+
+        worker = create_worker(work)
+        worker.returned.connect(on_work_returned)
+        worker.yielded.connect(on_work_yielded)
+        worker.errored.connect(on_work_returned)
+        worker.start()
+
+        return worker
+
+    def get_image_widget(self, thumbnail: np.ndarray) -> QWidget:
         image_widget = QLabel()
         image_widget.setPixmap(
             QPixmap(
@@ -153,22 +183,73 @@ class CreateProjectDialog(QDialog):
         )
         return image_widget
 
-    def add_document_row(self, document: ProjectDocument):
-        row = self.files_table.rowCount()
-        self.files_table.insertRow(row)
-        checkbox = QCheckBox()
-        checkbox.setChecked(not document.ignore)
-        checkbox.stateChanged.connect(
-            functools.partial(
-                self.on_check_changed, checkbox=checkbox, document_index=row
-            )
+    def get_thumbnail_image(self, document: ProjectDocument) -> np.ndarray:
+        thumbnail = self.project.read_lowres_image(document)
+        thumbnail = resize_image(thumbnail, size=(256, 256), keep_aspect=True)
+        thumbnail = np.tile(thumbnail[..., None], [1, 1, 3]).astype(np.float32)
+        if document.ignore:
+            thumbnail[..., [1, 2]] *= 0.3
+        else:
+            thumbnail[..., [0, 2]] *= 0.3
+        thumbnail = thumbnail.astype(np.uint8)
+        return thumbnail
+
+    def add_document_rows_async(
+        self, documents: List[ProjectDocument]
+    ) -> FunctionWorker:
+        progress = QProgressDialog(
+            "Opening images...", "Cancel", 0, len(documents), self
         )
-        self.files_table.setCellWidget(row, 0, checkbox)
-        self.files_table.setCellWidget(row, 1, self.get_image_widget(document))
-        self.files_table.setItem(row, 2, QTableWidgetItem(str(document.path.filename)))
-        self.files_table.setItem(row, 3, QTableWidgetItem(str(document.path.scene)))
-        self.files_table.resizeRowToContents(row)
-        self.files_table.resizeColumnsToContents()
+        progress.setModal(True)
+        progress.setValue(0)
+        progress.setWindowTitle("Loading...")
+        progress.show()
+
+        def on_work_returned():
+            self.channels_combobox.setCurrentIndex(self.project.settings.channel)
+            progress.close()
+
+        def on_work_yielded(result: Tuple[ProjectDocument, np.ndarray]):
+            document, thumbnail = result
+            row = self.files_table.rowCount()
+            self.files_table.insertRow(row)
+            checkbox = QCheckBox()
+            checkbox.setChecked(not document.ignore)
+            checkbox.stateChanged.connect(
+                functools.partial(
+                    self.on_check_changed, checkbox=checkbox, document_index=row
+                )
+            )
+            self.files_table.setCellWidget(row, 0, checkbox)
+            self.files_table.setCellWidget(row, 1, self.get_image_widget(thumbnail))
+            self.files_table.setItem(
+                row, 2, QTableWidgetItem(str(document.path.filename))
+            )
+            self.files_table.setItem(row, 3, QTableWidgetItem(str(document.path.scene)))
+            self.files_table.resizeRowToContents(row)
+            self.files_table.resizeColumnsToContents()
+
+            if self.channels_combobox.count() == 0:
+                self.channels_combobox.addItems(get_channels(document.path.filename))
+
+            progress.setValue(progress.value() + 1)
+
+        def work():
+            for document in documents:
+                if progress.wasCanceled():
+                    return
+                thumbnail = self.get_thumbnail_image(document)
+                yield document, thumbnail
+
+        worker = create_worker(work)
+        worker.returned.connect(on_work_returned)
+        worker.yielded.connect(on_work_yielded)
+        worker.errored.connect(on_work_returned)
+        worker.start()
+
+        self._add_documents_worker = worker
+
+        return worker
 
     @property
     def project_path(self) -> Path:
@@ -179,8 +260,9 @@ class CreateProjectDialog(QDialog):
             self.project.documents[document_index],
             ignore=not checkbox.isChecked(),
         )
+        thumbnail = self.get_thumbnail_image(document)
         self.files_table.setCellWidget(
-            document_index, 1, self.get_image_widget(document)
+            document_index, 1, self.get_image_widget(thumbnail)
         )
         self.project.documents[document_index] = document
 
@@ -190,11 +272,10 @@ class CreateProjectDialog(QDialog):
         )
 
     def on_selected_channel_changed(self, _):
-        new_channel = int(self.channels_combobox.currentText())
+        new_channel = int(self.channels_combobox.currentIndex())
         self.project.settings = replace(self.project.settings, channel=new_channel)
         self.files_table.setRowCount(0)
-        for document in self.project.documents:
-            self.add_document_row(document)
+        self.add_document_rows_async(self.project.documents)
 
     def on_add_images_clicked(self, _):
         filenames, _ = QFileDialog.getOpenFileNames(
@@ -202,8 +283,7 @@ class CreateProjectDialog(QDialog):
             "Add Image(s)",
             str(ANNOTATE_V1_1_ROOT / "images"),
         )
-        for filename in filenames:
-            self.add_filename(filename)
+        self.add_filenames_async(filenames)
 
     def on_project_location_clicked(self, _):
         path, _ = QFileDialog.getSaveFileName(
