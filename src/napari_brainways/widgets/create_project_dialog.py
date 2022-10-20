@@ -257,7 +257,9 @@ class CreateProjectDialog(QDialog):
     def project_path(self) -> Path:
         return Path(self.project_location_line_edit.text())
 
-    def on_check_changed(self, checkbox: QCheckBox, document_index: int):
+    def on_check_changed(
+        self, _=None, checkbox: QCheckBox = None, document_index: int = None
+    ):
         document = replace(
             self.project.documents[document_index],
             ignore=not checkbox.isChecked(),
