@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, Optional, Tuple
 
 import napari
 import numpy as np
@@ -44,7 +44,6 @@ class BrainwaysUI(QWidget):
         ]
 
         self.project: Optional[BrainwaysProject] = None
-        self.image: Optional[np.ndarray] = None
         self._current_valid_document_index: Optional[int] = None
         self._current_step_index: int = 0
 
@@ -72,7 +71,7 @@ class BrainwaysUI(QWidget):
         self.viewer.bind_key(
             "End",
             lambda _: self.set_document_index_async(
-                image_index=len(self.documents) - 1
+                image_index=len(self.project.valid_documents) - 1
             ),
             overwrite=True,
         )
@@ -175,8 +174,16 @@ class BrainwaysUI(QWidget):
         self.current_step.open()
         self.current_step.show(self.current_params, self._image)
         self.widget.hide_progress_bar()
+        self._set_title()
+
+    def _set_title(self, valid_document_index: Optional[int] = None):
+        if valid_document_index is None:
+            valid_document_index = self._current_valid_document_index
+        _, document = self.project.valid_documents[valid_document_index]
+        self.viewer.title = f"{self.project.project_path.name} - " f"{document.path}"
 
     def _on_project_opened(self):
+        self._set_title()
         self._register_keybinds()
         self.widget.on_project_changed()
         for step in self.steps:
@@ -211,7 +218,7 @@ class BrainwaysUI(QWidget):
         if persist_current_params:
             self.save_project()
 
-        image_index = min(max(image_index, 0), len(self.documents) - 1)
+        image_index = min(max(image_index, 0), len(self.project.valid_documents) - 1)
         if not force and self._current_valid_document_index == image_index:
             return None
 
@@ -231,7 +238,10 @@ class BrainwaysUI(QWidget):
 
     def next_image(self, _=None) -> FunctionWorker | None:
         return self.set_document_index_async(
-            min(self._current_valid_document_index + 1, len(self.documents) - 1)
+            min(
+                self._current_valid_document_index + 1,
+                len(self.project.valid_documents) - 1,
+            )
         )
 
     def set_step_index_async(
@@ -266,21 +276,30 @@ class BrainwaysUI(QWidget):
             min(self._current_step_index + 1, len(self.steps) - 1)
         )
 
-    def _batch_run_model(self) -> None:
-        raise NotImplementedError()
-        # for valid_index, (document_index, document) in enumerate(
-        #     self.project.valid_documents
-        # ):
-        #     self._current_valid_document_index = valid_index
-        #     view_images, params = self._prepare_view_images_and_params(document)
-        #     params = self.current_step.run_model(view_images, params)
-        #     self.project.documents[document_index] = replace(document, params=params)
-        #     yield valid_index
+    def _batch_run_model(self):
+        self.widget.show_progress_bar()
+        for valid_index in range(len(self.project.valid_documents)):
+            self._current_valid_document_index = valid_index
+            self._open_image()
+            self.current_params = self.current_step.run_model(
+                self._image, self.current_params
+            )
+            self.save_project(persist=False)
+            yield valid_index, self.current_params, self._image
+
+    def _batch_run_model_yielded(
+        self, args: Tuple[int, BrainwaysParams, np.ndarray]
+    ) -> None:
+        valid_index, params, image = args
+        self.current_step.show(params, image)
+        self.widget.set_image_index(valid_index + 1)
+        self.widget.update_progress_bar(valid_index + 1)
+        self._set_title(valid_document_index=valid_index)
 
     def batch_run_model_async(self) -> FunctionWorker:
-        self.widget.show_progress_bar(max_value=len(self.documents))
+        self.widget.show_progress_bar(max_value=len(self.project.valid_documents))
         worker = create_worker(self._batch_run_model)
-        worker.yielded.connect(self._progress_yielded)
+        worker.yielded.connect(self._batch_run_model_yielded)
         worker.returned.connect(self._progress_returned)
         worker.start()
         return worker
@@ -291,7 +310,7 @@ class BrainwaysUI(QWidget):
         self.project.save()
 
     def import_cells_async(self, path: Path) -> FunctionWorker:
-        self.widget.show_progress_bar(max_value=len(self.documents))
+        self.widget.show_progress_bar(max_value=len(self.project.valid_documents))
         worker = create_worker(self._import_cells, path)
         worker.yielded.connect(self._progress_yielded)
         worker.returned.connect(self._progress_returned)
@@ -303,7 +322,11 @@ class BrainwaysUI(QWidget):
         self.current_step.close()
         self.cell_viewer_controller.open(self.project.atlas)
         cells = np.concatenate(
-            [doc.cells for doc in self.documents if doc.cells is not None]
+            [
+                doc.cells
+                for i, doc in self.project.valid_documents
+                if doc.cells is not None
+            ]
         )
         self.cell_viewer_controller.show_cells(cells)
 
@@ -372,10 +395,6 @@ class BrainwaysUI(QWidget):
     @current_params.setter
     def current_params(self, value: BrainwaysParams):
         self.current_document = replace(self.current_document, params=value)
-
-    @property
-    def documents(self):
-        return [document for i, document in self.project.valid_documents]
 
     @property
     def project_size(self):

@@ -24,6 +24,7 @@ class RegistrationController(Controller):
         self.widget = RegistrationView(self)
         self.widget.hide()
         self.input_layer: napari.layers.Image | None = None
+        self.mask_layer: napari.layers.Image | None = None
         self.atlas_slice_layer: napari.layers.Image | None = None
         self._image: np.ndarray | None = None
         self._params: BrainwaysParams | None = None
@@ -121,10 +122,18 @@ class RegistrationController(Controller):
             )
 
     def run_model(self, image: np.ndarray, params: BrainwaysParams) -> BrainwaysParams:
-        atlas_registration_params = (
+        model_registration_params = (
             self.pipeline.atlas_registration.run_automatic_registration(image)
         )
-        return replace(params, atlas=atlas_registration_params)
+        atlas_params = AtlasRegistrationParams(
+            ap=model_registration_params.ap,
+            rot_frontal=model_registration_params.rot_frontal,
+            rot_horizontal=model_registration_params.rot_horizontal,
+            rot_sagittal=model_registration_params.rot_sagittal,
+            hemisphere=model_registration_params.hemisphere,
+            confidence=model_registration_params.confidence,
+        )
+        return replace(params, atlas=atlas_params)
 
     def on_run_model_button_click(self):
         params = self.run_model(image=self._image, params=self._params)
@@ -143,7 +152,9 @@ class RegistrationController(Controller):
 
         if image is not None:
             self._image = image
-            self._input_box = nonzero_bounding_box(brain_mask(image))
+            mask = brain_mask(image)
+            self._input_box = nonzero_bounding_box(mask)
+            self.mask_layer.data = mask
             self.input_layer.data = image
             update_layer_contrast_limits(self.input_layer, (0.01, 0.98))
 
@@ -162,9 +173,10 @@ class RegistrationController(Controller):
         atlas_box = self.pipeline.atlas.bounding_boxes[int(self.params.atlas.ap)]
         input_scale = atlas_box[3] / self._input_box[3]
         self.input_layer.scale = (input_scale, input_scale)
+        self.mask_layer.scale = (input_scale, input_scale)
 
         tx = (self._input_box[0] + self._input_box[0] * 0.1) * input_scale
-        ty = self._input_box[1] - atlas_box[1]
+        ty = self._input_box[1] * input_scale - atlas_box[1]
         self.atlas_slice_layer.translate = (ty, tx)
 
         if not from_ui:
@@ -198,6 +210,13 @@ class RegistrationController(Controller):
             np.zeros((512, 512), np.uint8),
             name="Input",
         )
+        self.mask_layer = self.ui.viewer.add_image(
+            np.zeros((512, 512), np.uint8),
+            name="Mask",
+            visible=False,
+            colormap="green",
+            blending="additive",
+        )
         self.atlas_slice_layer = self.ui.viewer.add_image(
             np.zeros(
                 (self.pipeline.atlas.shape[1], self.pipeline.atlas.shape[2]),
@@ -206,6 +225,7 @@ class RegistrationController(Controller):
             name="Atlas Slice",
         )
         self.input_layer.translate = (0, self.pipeline.atlas.shape[2])
+        self.mask_layer.translate = (0, self.pipeline.atlas.shape[2])
         self.register_key_bindings()
 
         self._is_open = True
@@ -217,8 +237,10 @@ class RegistrationController(Controller):
         self.widget.hide()
         self.unregister_key_bindings()
         self.ui.viewer.layers.remove(self.input_layer)
+        self.ui.viewer.layers.remove(self.mask_layer)
         self.ui.viewer.layers.remove(self.atlas_slice_layer)
         self.input_layer = None
+        self.mask_layer = None
         self.atlas_slice_layer = None
         self._params = None
         self._is_open = False
