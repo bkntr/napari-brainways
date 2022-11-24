@@ -289,7 +289,7 @@ class CreateProjectDialog(QDialog):
             self,
             "Save Project",
             str(Path.home()),
-            "Brainways subject (*.bin)",
+            "Brainways current_subject (*.bin)",
         )
         self.subject_location_line_edit.setText(path)
 

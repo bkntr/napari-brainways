@@ -6,7 +6,7 @@ contributions:
       python_name: napari_brainways._sample_data:make_sample_data
       title: Load sample data from napari Brainways
     - id: napari-brainways.make_qwidget
-      python_name: napari_brainways.widget:BrainwaysUI
+      python_name: napari_brainways.brainways_ui:BrainwaysUI
       title: Make BrainwaysUI widget
   sample_data:
     - command: napari-brainways.make_sample_data

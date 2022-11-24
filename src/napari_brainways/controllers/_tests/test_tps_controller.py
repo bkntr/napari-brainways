@@ -42,6 +42,7 @@ def elastix_mock(
     print("a")
 
 
+@pytest.mark.skip
 def test_run_elastix(qtbot: QtBot, app_on_tps: Tuple[BrainwaysUI, TpsController]):
     app, controller = app_on_tps
     worker_join(controller.run_elastix_async(), qtbot)

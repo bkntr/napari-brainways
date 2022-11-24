@@ -118,7 +118,9 @@ class RegistrationController(Controller):
         else:
             return replace(
                 params,
-                atlas=AtlasRegistrationParams(ap=self.ui.subject.atlas.shape[0] // 2),
+                atlas=AtlasRegistrationParams(
+                    ap=self.ui.current_subject.atlas.shape[0] // 2
+                ),
             )
 
     def run_model(self, image: np.ndarray, params: BrainwaysParams) -> BrainwaysParams:

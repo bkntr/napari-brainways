@@ -75,9 +75,9 @@ def opened_app(
     qtbot: QtBot,
     app: BrainwaysUI,
     test_data: Tuple[np.ndarray, AtlasSlice],
-    subject_path: Path,
+    project_path: Path,
 ):
-    worker = app.open_subject_async(subject_path)
+    worker = app.open_project_async(project_path)
     worker_join(worker, qtbot)
     return app
 
@@ -212,23 +212,59 @@ def mock_subject_documents(
 
 
 @pytest.fixture
-def mock_subject_settings() -> ProjectSettings:
+def mock_project_settings() -> ProjectSettings:
     return ProjectSettings(atlas="MOCK_ATLAS", channel=0)
+
+
+def _create_subject(
+    subject_dir: Path, project_settings: ProjectSettings, slice_infos: List[SliceInfo]
+) -> Path:
+    subject_dir.mkdir()
+    serialized_subject_settings = asdict(project_settings)
+    serialized_subject_documents = [asdict(doc) for doc in slice_infos]
+    with open(subject_dir / "brainways.bin", "wb") as f:
+        pickle.dump((serialized_subject_settings, serialized_subject_documents), f)
+    return subject_path
 
 
 @pytest.fixture
 def subject_path(
     tmpdir,
-    mock_subject_settings: ProjectSettings,
+    mock_project_settings: ProjectSettings,
     mock_subject_documents: List[SliceInfo],
 ) -> Path:
-    subject_path = Path(tmpdir) / "subject/brainways.bin"
-    subject_path.parent.mkdir()
-    serialized_subject_settings = asdict(mock_subject_settings)
+    subject_path = Path(tmpdir) / "project/subject1/brainways.bin"
+    subject_path.parent.mkdir(parents=True)
+    serialized_subject_settings = asdict(mock_project_settings)
     serialized_subject_documents = [asdict(doc) for doc in mock_subject_documents]
     with open(subject_path, "wb") as f:
         pickle.dump((serialized_subject_settings, serialized_subject_documents), f)
     yield subject_path
+
+
+@pytest.fixture
+def project_path(
+    tmpdir,
+    mock_project_settings: ProjectSettings,
+    mock_subject_documents: List[SliceInfo],
+) -> Path:
+    project_dir = Path(tmpdir) / "project"
+    project_path = project_dir / "project.bwp"
+    project_dir.mkdir()
+    _create_subject(
+        project_dir / "subject1",
+        project_settings=mock_project_settings,
+        slice_infos=mock_subject_documents,
+    )
+    _create_subject(
+        project_dir / "subject2",
+        project_settings=mock_project_settings,
+        slice_infos=mock_subject_documents,
+    )
+    serialized_project_settings = asdict(mock_project_settings)
+    with open(project_path, "wb") as f:
+        pickle.dump(serialized_project_settings, f)
+    yield project_path
 
 
 @pytest.fixture

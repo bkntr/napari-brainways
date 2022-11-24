@@ -1,3 +1,4 @@
+import shutil
 from pathlib import Path
 from typing import Tuple
 from unittest.mock import Mock
@@ -6,6 +7,8 @@ import numpy as np
 import pandas as pd
 import pytest
 from brainways.pipeline.brainways_params import BrainwaysParams
+from brainways.project.brainways_project import BrainwaysProject
+from brainways.project.brainways_subject import BrainwaysSubject
 from brainways.project.info_classes import SliceInfo
 from brainways.utils.io_utils import ImagePath
 from pytest import fixture
@@ -18,6 +21,11 @@ from napari_brainways.test_utils import randomly_modified_params, worker_join
 
 @fixture(params=[0, 1])
 def image_index(request):
+    return request.param
+
+
+@fixture(params=[0, 1])
+def subject_index(request):
     return request.param
 
 
@@ -89,6 +97,40 @@ def test_run_workflow(qtbot: QtBot, opened_app: BrainwaysUI):
     worker_join(worker, qtbot)
 
 
+def test_open_project(
+    qtbot: QtBot,
+    app: BrainwaysUI,
+    project_path: Path,
+):
+    assert app.project is None
+    worker = app.open_project_async(project_path)
+    worker_join(worker, qtbot)
+    assert isinstance(app.project, BrainwaysProject)
+    assert isinstance(app.current_subject, BrainwaysSubject)
+
+
+def test_open_project_without_subjects(
+    qtbot: QtBot, app: BrainwaysUI, project_path: Path
+):
+    for subject_dir in project_path.parent.glob("subject*"):
+        shutil.rmtree(subject_dir)
+    assert app.project is None
+    worker = app.open_project_async(project_path)
+    worker_join(worker, qtbot)
+    assert isinstance(app.project, BrainwaysProject)
+    assert app._current_valid_subject_index is None
+
+
+def test_set_subject_index_async(
+    qtbot: QtBot,
+    opened_app: BrainwaysUI,
+    subject_index: int,
+):
+    worker = opened_app.set_subject_index_async(subject_index)
+    worker_join(worker, qtbot)
+    assert opened_app.current_subject == opened_app.project.subjects[subject_index]
+
+
 @pytest.mark.skip
 def test_save_load_subject(
     qtbot: QtBot,
@@ -102,12 +144,12 @@ def test_save_load_subject(
     worker = opened_app.set_document_index_async(image_index)
     worker_join(worker, qtbot)
     save_path = Path(tmpdir) / "test"
-    docs = opened_app.subject.documents
+    docs = opened_app.current_subject.documents
     opened_app.save_subject()
-    opened_app.subject.documents = []
+    opened_app.current_subject.documents = []
     worker = opened_app.open_subject_async(save_path)
     worker_join(worker, qtbot)
-    assert opened_app.subject.documents == docs
+    assert opened_app.current_subject.documents == docs
 
 
 @pytest.mark.skip
@@ -119,12 +161,12 @@ def test_save_after_run_workflow(
     worker = opened_app.run_workflow_async()
     worker_join(worker, qtbot)
     save_path = Path(tmpdir) / "test"
-    docs = opened_app.documents
+    docs = opened_app.current_subject.documents
     opened_app.save_subject()
     opened_app.all_documents = []
     worker = opened_app.open_subject_async(save_path)
     worker_join(worker, qtbot)
-    assert opened_app.documents == docs
+    assert opened_app.current_subject.documents == docs
 
 
 @fixture

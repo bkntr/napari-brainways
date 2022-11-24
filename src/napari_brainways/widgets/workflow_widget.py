@@ -1,7 +1,7 @@
 import functools
 import os
 from pathlib import Path
-from typing import List
+from typing import Callable, List
 
 from magicgui import magicgui
 from qtpy.QtWidgets import (
@@ -25,13 +25,38 @@ class WorkflowView(QWidget):
         super().__init__(controller)
         self.controller = controller
         self.steps = steps
-        self._subject_init_widget = self._create_subject_init_buttons()
+        self._prev_path = str(Path.home())
+        self._project_init_widget = self._create_project_init_buttons()
+
+        (
+            self._select_subject_groupbox,
+            self._select_subject_widget,
+            self._select_subject_label,
+        ) = self._create_navigation_controls(
+            label="Subject",
+            select_callback=self.select_subject,
+            prev_callback=self.controller.prev_subject,
+            next_callback=self.controller.next_subject,
+        )
+        self._select_subject_groupbox.hide()
 
         (
             self._image_controls_groupbox,
             self._select_image_widget,
             self._select_image_label,
-        ) = self._create_image_navigation_controls()
+        ) = self._create_navigation_controls(
+            label="Image",
+            select_callback=self.select_image,
+            prev_callback=self.controller.prev_image,
+            next_callback=self.controller.next_image,
+        )
+
+        self._project_controls_widget = QWidget()
+        self._project_controls_layout = QVBoxLayout(self._project_controls_widget)
+
+        self._project_controls_layout.addWidget(QLabel("<b>Project Controls:</b>"))
+        self._project_controls_layout.addWidget(self._project_init_widget)
+        self._project_controls_layout.addWidget(self._select_subject_groupbox)
 
         (self.steps_groupbox, self._step_buttons) = self._create_step_buttons()
         (
@@ -90,7 +115,7 @@ class WorkflowView(QWidget):
 
         self._layout = QVBoxLayout()
         self.setLayout(self._layout)
-        self._layout.addWidget(self._subject_init_widget)
+        self._layout.addWidget(self._project_controls_widget)
         self._layout.addWidget(self._subject_controls_widget)
         self._layout.addWidget(self._progress_bar_layout_widget)
         self._layout.setContentsMargins(0, 0, 0, 0)
@@ -110,24 +135,31 @@ class WorkflowView(QWidget):
 
         return progress_bar_layout_widget, progress_bar, progress_bar_label
 
-    def _create_subject_init_buttons(self):
-        create_subject_button = QPushButton("Create Project", self)
-        create_subject_button.clicked.connect(self.on_create_subject_clicked)
-        open_subject_button = QPushButton("Open Project", self)
-        open_subject_button.clicked.connect(self.on_open_subject_clicked)
-        subject_init_widget = QWidget()
-        subject_init_layout = QVBoxLayout(subject_init_widget)
-        subject_init_layout.addWidget(create_subject_button)
-        subject_init_layout.addWidget(open_subject_button)
-        return subject_init_widget
+    def _create_project_init_buttons(self):
+        create_project_button = QPushButton("Create", self)
+        create_project_button.clicked.connect(self.on_create_subject_clicked)
+        open_prooject_button = QPushButton("Open", self)
+        open_prooject_button.clicked.connect(self.on_open_project_clicked)
+        project_init_groupbox = QGroupBox()
+        project_init_layout = QHBoxLayout(project_init_groupbox)
+        project_init_groupbox.setLayout(project_init_layout)
+        project_init_layout.addWidget(create_project_button)
+        project_init_layout.addWidget(open_prooject_button)
+        return project_init_groupbox
 
-    def _create_image_navigation_controls(self):
+    def _create_navigation_controls(
+        self,
+        label: str,
+        select_callback: Callable,
+        prev_callback: Callable,
+        next_callback: Callable,
+    ):
         select_image_widget = magicgui(
-            self.select_image,
+            select_callback,
             auto_call=True,
-            image_index={
+            value={
                 "widget_type": "Slider",
-                "label": "Image #",
+                "label": f"{label} #",
                 "min": 1,
                 "max": 1,
             },
@@ -141,9 +173,9 @@ class WorkflowView(QWidget):
         image_controls_layout = QVBoxLayout()
         image_controls_groupbox.setLayout(image_controls_layout)
         prev_image_button = QPushButton("< Previous")
-        prev_image_button.clicked.connect(self.on_prev_image_clicked)
+        prev_image_button.clicked.connect(prev_callback)
         next_image_button = QPushButton("Next >")
-        next_image_button.clicked.connect(self.on_next_image_clicked)
+        next_image_button.clicked.connect(next_callback)
         prev_next_image_buttons = QHBoxLayout()
         prev_next_image_buttons.addWidget(prev_image_button)
         prev_next_image_buttons.addWidget(next_image_button)
@@ -200,7 +232,7 @@ class WorkflowView(QWidget):
     def on_edit_subject_clicked(self, _=None):
         dialog = CreateProjectDialog(
             self,
-            subject=self.controller.subject,
+            subject=self.controller.current_subject,
         )
         result = dialog.exec()
         if result == QDialog.DialogCode.Rejected:
@@ -210,7 +242,7 @@ class WorkflowView(QWidget):
         )
         self.on_subject_changed()
 
-    def on_open_subject_clicked(self, _=None):
+    def on_open_project_clicked(self, _=None):
         kwargs = {}
         if "SNAP" in os.environ:
             kwargs["options"] = QFileDialog.DontUseNativeDialog
@@ -218,29 +250,35 @@ class WorkflowView(QWidget):
         path, _ = QFileDialog.getOpenFileName(
             self,
             "Open Project",
-            str(Path.home()),
-            "Brainways subject (*.bin)",
+            self._prev_path,
+            "Brainways Project (*.bwp)",
             **kwargs,
         )
         if path == "":
             return
-        self.controller.open_subject_async(Path(path))
+        self._prev_path = str(Path(path).parent)
+        self.controller.open_project_async(Path(path))
+
+    def on_project_changed(self, n_subjects: int):
+        if n_subjects == 0:
+            self._select_subject_groupbox.hide()
+        else:
+            self._select_subject_widget.value.max = n_subjects
+            self._select_subject_label.setText(
+                f"/ {self._select_subject_widget.value.max}"
+            )
+            self._select_subject_groupbox.show()
 
     def on_subject_changed(self):
-        self._select_image_widget.image_index.max = self.controller.subject_size
-        self._select_image_label.setText(
-            f"/ {self._select_image_widget.image_index.max}"
-        )
+        self._select_image_widget.value.max = self.controller.subject_size
+        self._select_image_label.setText(f"/ {self._select_image_widget.value.max}")
         self._subject_controls_widget.show()
 
-    def select_image(self, image_index: int):
-        self.controller.set_document_index_async(image_index - 1)
+    def select_subject(self, value: int):
+        self.controller.set_subject_index_async(value - 1)
 
-    def on_prev_image_clicked(self, _=None):
-        self.controller.prev_image()
-
-    def on_next_image_clicked(self, _=None):
-        self.controller.next_image()
+    def select_image(self, value: int):
+        self.controller.set_document_index_async(value - 1)
 
     def set_step(self, step_index: int):
         for step_button in self._step_buttons:
@@ -295,13 +333,17 @@ class WorkflowView(QWidget):
             return
         self.controller.import_cells_async(Path(path))
 
+    def set_subject_index(self, subject_index: int):
+        self._select_subject_widget._auto_call = False
+        self._select_subject_widget.value.value = subject_index
+        self._select_subject_widget._auto_call = True
+        self._select_subject_label.setText(f"/ {self._select_subject_widget.value.max}")
+
     def set_image_index(self, image_index: int):
         self._select_image_widget._auto_call = False
-        self._select_image_widget.image_index.value = image_index
+        self._select_image_widget.value.value = image_index
         self._select_image_widget._auto_call = True
-        self._select_image_label.setText(
-            f"/ {self._select_image_widget.image_index.max}"
-        )
+        self._select_image_label.setText(f"/ {self._select_image_widget.value.max}")
 
     def update_progress_bar(self, value: int, label: str = None):
         if label is not None:
