@@ -38,7 +38,17 @@ class WorkflowView(QWidget):
             prev_callback=self.controller.prev_subject,
             next_callback=self.controller.next_subject,
         )
-        self._select_subject_groupbox.hide()
+        self._select_subject_groupbox_title = QWidget()
+        self._select_subject_groupbox_title_layout = QVBoxLayout(
+            self._select_subject_groupbox_title
+        )
+        self._select_subject_groupbox_title_layout.addWidget(
+            QLabel("<b>Subject Controls:</b> [B/N]")
+        )
+        self._select_subject_groupbox_title_layout.addWidget(
+            self._select_subject_groupbox
+        )
+        self._select_subject_groupbox_title.hide()
 
         (
             self._image_controls_groupbox,
@@ -50,13 +60,6 @@ class WorkflowView(QWidget):
             prev_callback=self.controller.prev_image,
             next_callback=self.controller.next_image,
         )
-
-        self._project_controls_widget = QWidget()
-        self._project_controls_layout = QVBoxLayout(self._project_controls_widget)
-
-        self._project_controls_layout.addWidget(QLabel("<b>Project Controls:</b>"))
-        self._project_controls_layout.addWidget(self._project_init_widget)
-        self._project_controls_layout.addWidget(self._select_subject_groupbox)
 
         (self.steps_groupbox, self._step_buttons) = self._create_step_buttons()
         (
@@ -97,9 +100,7 @@ class WorkflowView(QWidget):
         self._subject_controls_widget = QWidget()
         self._subject_controls_layout = QVBoxLayout(self._subject_controls_widget)
 
-        self._subject_controls_layout.addWidget(
-            QLabel("<b>Image Controls:</b> [Enter/Backspace]")
-        )
+        self._subject_controls_layout.addWidget(QLabel("<b>Image Controls:</b> [b/n]"))
         self._subject_controls_layout.addWidget(self._image_controls_groupbox)
         self._subject_controls_layout.addWidget(QLabel("<b>Steps:</b> [PgUp/PgDn]"))
         self._subject_controls_layout.addWidget(self.steps_groupbox)
@@ -115,7 +116,8 @@ class WorkflowView(QWidget):
 
         self._layout = QVBoxLayout()
         self.setLayout(self._layout)
-        self._layout.addWidget(self._project_controls_widget)
+        self._layout.addWidget(self._project_init_widget)
+        self._layout.addWidget(self._select_subject_groupbox_title)
         self._layout.addWidget(self._subject_controls_widget)
         self._layout.addWidget(self._progress_bar_layout_widget)
         self._layout.setContentsMargins(0, 0, 0, 0)
@@ -138,14 +140,20 @@ class WorkflowView(QWidget):
     def _create_project_init_buttons(self):
         create_project_button = QPushButton("Create", self)
         create_project_button.clicked.connect(self.on_create_subject_clicked)
-        open_prooject_button = QPushButton("Open", self)
-        open_prooject_button.clicked.connect(self.on_open_project_clicked)
-        project_init_groupbox = QGroupBox()
-        project_init_layout = QHBoxLayout(project_init_groupbox)
-        project_init_groupbox.setLayout(project_init_layout)
-        project_init_layout.addWidget(create_project_button)
-        project_init_layout.addWidget(open_prooject_button)
-        return project_init_groupbox
+        open_project_button = QPushButton("Open", self)
+        open_project_button.clicked.connect(self.on_open_project_clicked)
+
+        buttons_groupbox = QGroupBox()
+        buttons_groupbox.setLayout(QHBoxLayout(buttons_groupbox))
+        buttons_groupbox.layout().addWidget(open_project_button)
+        buttons_groupbox.layout().addWidget(create_project_button)
+
+        project_init_widget = QWidget()
+        project_init_widget.setLayout(QVBoxLayout(project_init_widget))
+        project_init_widget.layout().addWidget(QLabel("<b>Project Controls:</b>"))
+        project_init_widget.layout().addWidget(buttons_groupbox)
+
+        return project_init_widget
 
     def _create_navigation_controls(
         self,
@@ -267,7 +275,7 @@ class WorkflowView(QWidget):
             self._select_subject_label.setText(
                 f"/ {self._select_subject_widget.value.max}"
             )
-            self._select_subject_groupbox.show()
+            self._select_subject_groupbox_title.show()
 
     def on_subject_changed(self):
         self._select_image_widget.value.max = self.controller.subject_size

@@ -63,8 +63,10 @@ class BrainwaysUI(QWidget):
     def _register_keybinds(self):
         self.viewer.bind_key("PageDown", self.next_step, overwrite=True)
         self.viewer.bind_key("PageUp", self.prev_step, overwrite=True)
-        self.viewer.bind_key("Enter", self.next_image, overwrite=True)
-        self.viewer.bind_key("Backspace", self.prev_image, overwrite=True)
+        self.viewer.bind_key("n", self.next_image, overwrite=True)
+        self.viewer.bind_key("b", self.prev_image, overwrite=True)
+        self.viewer.bind_key("Shift-N", self.next_subject, overwrite=True)
+        self.viewer.bind_key("Shift-B", self.prev_subject, overwrite=True)
         self.viewer.bind_key(
             "Home",
             lambda _: self.set_document_index_async(image_index=0),
@@ -157,7 +159,7 @@ class BrainwaysUI(QWidget):
 
     def _open_project(self, path: Path):
         yield "Opening project..."
-        self.project = BrainwaysProject.open(path)
+        self.project = BrainwaysProject.open(path, lazy_init=True)
         yield f"Loading '{self.project.settings.atlas}' atlas..."
         self.project.load_atlas()
         yield "Loading Brainways Pipeline models..."
@@ -230,11 +232,10 @@ class BrainwaysUI(QWidget):
         force: bool = False,
         save_current_subject: bool = True,
     ) -> FunctionWorker | None:
-        self.reset(save_current_subject=save_current_subject)
-        subject_index = min(max(subject_index, 0), len(self.project.subjects) - 1)
-
         if not force and self._current_valid_subject_index == subject_index:
             return None
+        self.reset(save_current_subject=save_current_subject)
+        subject_index = min(max(subject_index, 0), len(self.project.subjects) - 1)
 
         self._current_valid_subject_index = subject_index
         self.widget.set_subject_index(subject_index + 1)
