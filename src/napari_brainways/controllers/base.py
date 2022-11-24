@@ -8,7 +8,7 @@ from brainways.pipeline.brainways_params import BrainwaysParams
 from brainways.pipeline.brainways_pipeline import BrainwaysPipeline
 
 if TYPE_CHECKING:
-    from napari_brainways.widget import BrainwaysUI
+    from napari_brainways.brainways_ui import BrainwaysUI
 
 
 class Controller(ABC):

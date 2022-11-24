@@ -12,7 +12,7 @@ from napari_brainways.controllers.base import Controller
 from napari_brainways.utils import update_layer_contrast_limits
 
 if TYPE_CHECKING:
-    from napari_brainways.widget import BrainwaysUI
+    from napari_brainways.brainways_ui import BrainwaysUI
 
 
 class AnnotationViewerController(Controller):

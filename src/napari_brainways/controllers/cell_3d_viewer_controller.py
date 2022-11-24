@@ -9,7 +9,7 @@ from brainways.pipeline.brainways_params import BrainwaysParams
 from brainways.utils.atlas.brainways_atlas import BrainwaysAtlas
 
 if TYPE_CHECKING:
-    from napari_brainways.widget import BrainwaysUI
+    from napari_brainways.brainways_ui import BrainwaysUI
 
 
 class Cell3DViewerController:

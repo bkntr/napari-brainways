@@ -16,7 +16,7 @@ from napari_brainways.utils import update_layer_contrast_limits
 from napari_brainways.widgets.tps_widget import TpsWidget
 
 if TYPE_CHECKING:
-    from napari_brainways.widget import BrainwaysUI
+    from napari_brainways.brainways_ui import BrainwaysUI
 
 
 class TpsController(Controller):

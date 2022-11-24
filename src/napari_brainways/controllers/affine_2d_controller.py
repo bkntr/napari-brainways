@@ -14,7 +14,7 @@ from napari_brainways.utils import update_layer_contrast_limits
 from napari_brainways.widgets.affine_2d_widget import Affine2DWidget
 
 if TYPE_CHECKING:
-    from napari_brainways.widget import BrainwaysUI
+    from napari_brainways.brainways_ui import BrainwaysUI
 
 
 class Affine2DController(Controller):

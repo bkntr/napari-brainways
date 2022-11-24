@@ -5,9 +5,9 @@ from brainways.utils.test_utils import randomly_modified_params
 from pytest import fixture
 from pytestqt.qtbot import QtBot
 
+from napari_brainways.brainways_ui import BrainwaysUI
 from napari_brainways.controllers.affine_2d_controller import Affine2DController
 from napari_brainways.test_utils import worker_join
-from napari_brainways.widget import BrainwaysUI
 
 
 @fixture
