@@ -7,8 +7,8 @@ from typing import Callable, Optional, Tuple
 import napari
 import numpy as np
 from brainways.pipeline.brainways_params import BrainwaysParams
-from brainways.project.brainways_project import BrainwaysProject
-from brainways.project.brainways_project_settings import ProjectDocument
+from brainways.project.brainways_subject import BrainwaysSubject
+from brainways.project.info_classes import SliceInfo
 from napari.qt.threading import FunctionWorker, GeneratorWorker, create_worker
 from qtpy.QtWidgets import QVBoxLayout, QWidget
 
@@ -43,7 +43,7 @@ class BrainwaysUI(QWidget):
             self.annotation_viewer_controller,
         ]
 
-        self.project: Optional[BrainwaysProject] = None
+        self.subject: Optional[BrainwaysSubject] = None
         self._current_valid_document_index: Optional[int] = None
         self._current_step_index: int = 0
 
@@ -71,14 +71,14 @@ class BrainwaysUI(QWidget):
         self.viewer.bind_key(
             "End",
             lambda _: self.set_document_index_async(
-                image_index=len(self.project.valid_documents) - 1
+                image_index=len(self.subject.valid_documents) - 1
             ),
             overwrite=True,
         )
 
     def reset(self):
-        if self.project is not None:
-            self.save_project()
+        if self.subject is not None:
+            self.save_subject()
             self.current_step.close()
             self.widget.set_step(0)
             self.widget.set_image_index(1)
@@ -87,13 +87,13 @@ class BrainwaysUI(QWidget):
 
     def _load_atlas_async(self) -> FunctionWorker:
         return self.do_work_async(
-            self.project.load_atlas(), progress_label="Loading atlas..."
+            self.subject.load_atlas(), progress_label="Loading atlas..."
         )
 
     def _run_workflow_single_doc(self, doc_i: int) -> None:
         raise NotImplementedError()
         # reader = brainways.utils.io_utils.readers.get_reader(self.documents[doc_i].path)
-        # transform = self.project.pipeline.get_image_to_atlas_transform(doc_i, reader)
+        # transform = self.subject.pipeline.get_image_to_atlas_transform(doc_i, reader)
         # cell_detector_result = None
         # document = self.documents[doc_i]
         #
@@ -141,27 +141,27 @@ class BrainwaysUI(QWidget):
         raise NotImplementedError()
         # self.widget.hide_progress_bar()
 
-    def open_project_async(self, path: Path) -> FunctionWorker:
+    def open_subject_async(self, path: Path) -> FunctionWorker:
         self.reset()
         return self.do_work_async(
-            self._open_project,
-            return_callback=self._on_project_opened,
-            progress_label="Opening project...",
+            self._open_subject,
+            return_callback=self._on_subject_opened,
+            progress_label="Opening subject...",
             path=path,
         )
 
-    def _open_project(self, path: Path):
-        yield "Opening project..."
-        self.project = BrainwaysProject.open(path)
-        yield f"Loading '{self.project.settings.atlas}' atlas..."
-        self.project.load_atlas()
+    def _open_subject(self, path: Path):
+        yield "Opening subject..."
+        self.subject = BrainwaysSubject.open(path)
+        yield f"Loading '{self.subject.settings.atlas}' atlas..."
+        self.subject.load_atlas()
         yield "Loading Brainways Pipeline models..."
-        self.project.load_pipeline()
+        self.subject.load_pipeline()
         yield "Opening image..."
         self._open_image()
 
     def _open_image(self):
-        self._image = self.project.read_lowres_image(self.current_document)
+        self._image = self.subject.read_lowres_image(self.current_document)
         self._load_step_default_params()
 
     def _load_step_default_params(self):
@@ -179,13 +179,13 @@ class BrainwaysUI(QWidget):
     def _set_title(self, valid_document_index: Optional[int] = None):
         if valid_document_index is None:
             valid_document_index = self._current_valid_document_index
-        _, document = self.project.valid_documents[valid_document_index]
-        self.viewer.title = f"{self.project.project_path.name} - " f"{document.path}"
+        _, document = self.subject.valid_documents[valid_document_index]
+        self.viewer.title = f"{self.subject.subject_path.name} - " f"{document.path}"
 
-    def _on_project_opened(self):
+    def _on_subject_opened(self):
         self._set_title()
         self._register_keybinds()
-        self.widget.on_project_changed()
+        self.widget.on_subject_changed()
         for step in self.steps:
             step.pipeline_loaded()
         self.current_step.open()
@@ -200,13 +200,13 @@ class BrainwaysUI(QWidget):
             self.current_document, params=self.current_step.params
         )
 
-    def save_project(self, persist: bool = True) -> None:
+    def save_subject(self, persist: bool = True) -> None:
         if persist:
             self.persist_current_params()
-        self.project.save()
+        self.subject.save()
 
     def export_cells(self, path: Path) -> None:
-        df = self.project.cell_count_summary()
+        df = self.subject.cell_count_summary()
         df.to_csv(path, index=False)
 
     def set_document_index_async(
@@ -216,9 +216,9 @@ class BrainwaysUI(QWidget):
         persist_current_params: bool = True,
     ) -> FunctionWorker | None:
         if persist_current_params:
-            self.save_project()
+            self.save_subject()
 
-        image_index = min(max(image_index, 0), len(self.project.valid_documents) - 1)
+        image_index = min(max(image_index, 0), len(self.subject.valid_documents) - 1)
         if not force and self._current_valid_document_index == image_index:
             return None
 
@@ -240,7 +240,7 @@ class BrainwaysUI(QWidget):
         return self.set_document_index_async(
             min(
                 self._current_valid_document_index + 1,
-                len(self.project.valid_documents) - 1,
+                len(self.subject.valid_documents) - 1,
             )
         )
 
@@ -248,13 +248,13 @@ class BrainwaysUI(QWidget):
         self,
         step_index: int,
         force: bool = False,
-        save_project: bool = True,
+        save_subject: bool = True,
         run_async: bool = True,
     ) -> FunctionWorker | None:
         if not force and self._current_step_index == step_index:
             return
-        if save_project:
-            self.save_project()
+        if save_subject:
+            self.save_subject()
         self.current_step.close()
         self._current_step_index = step_index
         if run_async:
@@ -278,13 +278,13 @@ class BrainwaysUI(QWidget):
 
     def _batch_run_model(self):
         self.widget.show_progress_bar()
-        for valid_index in range(len(self.project.valid_documents)):
+        for valid_index in range(len(self.subject.valid_documents)):
             self._current_valid_document_index = valid_index
             self._open_image()
             self.current_params = self.current_step.run_model(
                 self._image, self.current_params
             )
-            self.save_project(persist=False)
+            self.save_subject(persist=False)
             yield valid_index, self.current_params, self._image
 
     def _batch_run_model_yielded(
@@ -297,7 +297,7 @@ class BrainwaysUI(QWidget):
         self._set_title(valid_document_index=valid_index)
 
     def batch_run_model_async(self) -> FunctionWorker:
-        self.widget.show_progress_bar(max_value=len(self.project.valid_documents))
+        self.widget.show_progress_bar(max_value=len(self.subject.valid_documents))
         worker = create_worker(self._batch_run_model)
         worker.yielded.connect(self._batch_run_model_yielded)
         worker.returned.connect(self._progress_returned)
@@ -305,12 +305,12 @@ class BrainwaysUI(QWidget):
         return worker
 
     def _import_cells(self, path: Path) -> None:
-        for i, document in self.project.import_cells_yield_progress(path):
+        for i, document in self.subject.import_cells_yield_progress(path):
             yield i
-        self.project.save()
+        self.subject.save()
 
     def import_cells_async(self, path: Path) -> FunctionWorker:
-        self.widget.show_progress_bar(max_value=len(self.project.valid_documents))
+        self.widget.show_progress_bar(max_value=len(self.subject.valid_documents))
         worker = create_worker(self._import_cells, path)
         worker.yielded.connect(self._progress_yielded)
         worker.returned.connect(self._progress_returned)
@@ -318,13 +318,13 @@ class BrainwaysUI(QWidget):
         return worker
 
     def show_cells_view(self):
-        self.save_project()
+        self.save_subject()
         self.current_step.close()
-        self.cell_viewer_controller.open(self.project.atlas)
+        self.cell_viewer_controller.open(self.subject.atlas)
         cells = np.concatenate(
             [
                 doc.cells
-                for i, doc in self.project.valid_documents
+                for i, doc in self.subject.valid_documents
                 if doc.cells is not None
             ]
         )
@@ -371,18 +371,18 @@ class BrainwaysUI(QWidget):
 
     @property
     def _current_document_index(self):
-        current_document_index, _ = self.project.valid_documents[
+        current_document_index, _ = self.subject.valid_documents[
             self._current_valid_document_index
         ]
         return current_document_index
 
     @property
     def current_document(self):
-        return self.project.documents[self._current_document_index]
+        return self.subject.documents[self._current_document_index]
 
     @current_document.setter
-    def current_document(self, value: ProjectDocument):
-        self.project.documents[self._current_document_index] = value
+    def current_document(self, value: SliceInfo):
+        self.subject.documents[self._current_document_index] = value
 
     @property
     def current_step(self):
@@ -390,12 +390,12 @@ class BrainwaysUI(QWidget):
 
     @property
     def current_params(self):
-        return self.project.documents[self._current_document_index].params
+        return self.subject.documents[self._current_document_index].params
 
     @current_params.setter
     def current_params(self, value: BrainwaysParams):
         self.current_document = replace(self.current_document, params=value)
 
     @property
-    def project_size(self):
-        return len(self.project.valid_documents)
+    def subject_size(self):
+        return len(self.subject.valid_documents)

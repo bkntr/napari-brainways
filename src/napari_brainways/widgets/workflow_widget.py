@@ -17,7 +17,7 @@ from qtpy.QtWidgets import (
 )
 
 from napari_brainways.controllers.base import Controller
-from napari_brainways.widgets.create_project_dialog import CreateProjectDialog
+from napari_brainways.widgets.create_subject_dialog import CreateProjectDialog
 
 
 class WorkflowView(QWidget):
@@ -25,7 +25,7 @@ class WorkflowView(QWidget):
         super().__init__(controller)
         self.controller = controller
         self.steps = steps
-        self._project_init_widget = self._create_project_init_buttons()
+        self._subject_init_widget = self._create_subject_init_buttons()
 
         (
             self._image_controls_groupbox,
@@ -49,8 +49,8 @@ class WorkflowView(QWidget):
         self.cell_view_button = QPushButton("3D Cell View")
         self.cell_view_button.clicked.connect(self.controller.show_cells_view)
 
-        self.edit_project_button = QPushButton("Edit Project")
-        self.edit_project_button.clicked.connect(self.on_edit_project_clicked)
+        self.edit_subject_button = QPushButton("Edit Project")
+        self.edit_subject_button.clicked.connect(self.on_edit_subject_clicked)
 
         self.save_button = QPushButton("Save Project")
         self.save_button.clicked.connect(self.on_save_button_clicked)
@@ -69,29 +69,29 @@ class WorkflowView(QWidget):
         self.import_cells_button = QPushButton("Import Cells")
         self.import_cells_button.clicked.connect(self.on_import_cells_clicked)
 
-        self._project_controls_widget = QWidget()
-        self._project_controls_layout = QVBoxLayout(self._project_controls_widget)
+        self._subject_controls_widget = QWidget()
+        self._subject_controls_layout = QVBoxLayout(self._subject_controls_widget)
 
-        self._project_controls_layout.addWidget(
+        self._subject_controls_layout.addWidget(
             QLabel("<b>Image Controls:</b> [Enter/Backspace]")
         )
-        self._project_controls_layout.addWidget(self._image_controls_groupbox)
-        self._project_controls_layout.addWidget(QLabel("<b>Steps:</b> [PgUp/PgDn]"))
-        self._project_controls_layout.addWidget(self.steps_groupbox)
-        self._project_controls_layout.addWidget(self._step_controls_widget)
-        self._project_controls_layout.addWidget(self.cell_view_button)
-        self._project_controls_layout.addWidget(self.import_cells_button)
-        self._project_controls_layout.addWidget(self.batch_run_model_button)
-        self._project_controls_layout.addWidget(self.run_workflow_button)
-        self._project_controls_layout.addWidget(self.save_button)
-        self._project_controls_layout.addWidget(self.edit_project_button)
-        self._project_controls_layout.addWidget(self.export_button)
-        self._project_controls_widget.hide()
+        self._subject_controls_layout.addWidget(self._image_controls_groupbox)
+        self._subject_controls_layout.addWidget(QLabel("<b>Steps:</b> [PgUp/PgDn]"))
+        self._subject_controls_layout.addWidget(self.steps_groupbox)
+        self._subject_controls_layout.addWidget(self._step_controls_widget)
+        self._subject_controls_layout.addWidget(self.cell_view_button)
+        self._subject_controls_layout.addWidget(self.import_cells_button)
+        self._subject_controls_layout.addWidget(self.batch_run_model_button)
+        self._subject_controls_layout.addWidget(self.run_workflow_button)
+        self._subject_controls_layout.addWidget(self.save_button)
+        self._subject_controls_layout.addWidget(self.edit_subject_button)
+        self._subject_controls_layout.addWidget(self.export_button)
+        self._subject_controls_widget.hide()
 
         self._layout = QVBoxLayout()
         self.setLayout(self._layout)
-        self._layout.addWidget(self._project_init_widget)
-        self._layout.addWidget(self._project_controls_widget)
+        self._layout.addWidget(self._subject_init_widget)
+        self._layout.addWidget(self._subject_controls_widget)
         self._layout.addWidget(self._progress_bar_layout_widget)
         self._layout.setContentsMargins(0, 0, 0, 0)
 
@@ -110,16 +110,16 @@ class WorkflowView(QWidget):
 
         return progress_bar_layout_widget, progress_bar, progress_bar_label
 
-    def _create_project_init_buttons(self):
-        create_project_button = QPushButton("Create Project", self)
-        create_project_button.clicked.connect(self.on_create_project_clicked)
-        open_project_button = QPushButton("Open Project", self)
-        open_project_button.clicked.connect(self.on_open_project_clicked)
-        project_init_widget = QWidget()
-        project_init_layout = QVBoxLayout(project_init_widget)
-        project_init_layout.addWidget(create_project_button)
-        project_init_layout.addWidget(open_project_button)
-        return project_init_widget
+    def _create_subject_init_buttons(self):
+        create_subject_button = QPushButton("Create Project", self)
+        create_subject_button.clicked.connect(self.on_create_subject_clicked)
+        open_subject_button = QPushButton("Open Project", self)
+        open_subject_button.clicked.connect(self.on_open_subject_clicked)
+        subject_init_widget = QWidget()
+        subject_init_layout = QVBoxLayout(subject_init_widget)
+        subject_init_layout.addWidget(create_subject_button)
+        subject_init_layout.addWidget(open_subject_button)
+        return subject_init_widget
 
     def _create_image_navigation_controls(self):
         select_image_widget = magicgui(
@@ -185,7 +185,7 @@ class WorkflowView(QWidget):
                 inner_layout.addWidget(controller.widget)
         return widget, header
 
-    def on_create_project_clicked(self, _=None):
+    def on_create_subject_clicked(self, _=None):
         path = QFileDialog.getExistingDirectory(
             self,
             "Create Brainways Project",
@@ -195,12 +195,12 @@ class WorkflowView(QWidget):
         result = dialog.exec()
         if result == QDialog.DialogCode.Rejected:
             return
-        self.controller.open_project_async(dialog.project.project_path)
+        self.controller.open_subject_async(dialog.subject.subject_path)
 
-    def on_edit_project_clicked(self, _=None):
+    def on_edit_subject_clicked(self, _=None):
         dialog = CreateProjectDialog(
             self,
-            project=self.controller.project,
+            subject=self.controller.subject,
         )
         result = dialog.exec()
         if result == QDialog.DialogCode.Rejected:
@@ -208,9 +208,9 @@ class WorkflowView(QWidget):
         self.controller.set_document_index_async(
             image_index=0, force=True, persist_current_params=False
         )
-        self.on_project_changed()
+        self.on_subject_changed()
 
-    def on_open_project_clicked(self, _=None):
+    def on_open_subject_clicked(self, _=None):
         kwargs = {}
         if "SNAP" in os.environ:
             kwargs["options"] = QFileDialog.DontUseNativeDialog
@@ -219,19 +219,19 @@ class WorkflowView(QWidget):
             self,
             "Open Project",
             str(Path.home()),
-            "Brainways project (*.bin)",
+            "Brainways subject (*.bin)",
             **kwargs,
         )
         if path == "":
             return
-        self.controller.open_project_async(Path(path))
+        self.controller.open_subject_async(Path(path))
 
-    def on_project_changed(self):
-        self._select_image_widget.image_index.max = self.controller.project_size
+    def on_subject_changed(self):
+        self._select_image_widget.image_index.max = self.controller.subject_size
         self._select_image_label.setText(
             f"/ {self._select_image_widget.image_index.max}"
         )
-        self._project_controls_widget.show()
+        self._subject_controls_widget.show()
 
     def select_image(self, image_index: int):
         self.controller.set_document_index_async(image_index - 1)
@@ -264,7 +264,7 @@ class WorkflowView(QWidget):
         self.controller.run_workflow_async()
 
     def on_save_button_clicked(self, _=None):
-        self.controller.save_project()
+        self.controller.save_subject()
 
     def on_export_clicked(self, _=None):
         kwargs = {}

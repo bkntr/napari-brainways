@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from brainways.pipeline.brainways_params import BrainwaysParams
-from brainways.project.brainways_project_settings import ProjectDocument
+from brainways.project.info_classes import SliceInfo
 from brainways.utils.io_utils import ImagePath
 from pytest import fixture
 from pytestqt.qtbot import QtBot
@@ -36,8 +36,8 @@ def step(opened_app: BrainwaysUI, step_index: int):
 
 
 @fixture
-def project_doc() -> ProjectDocument:
-    return ProjectDocument(
+def subject_doc() -> SliceInfo:
+    return SliceInfo(
         path=ImagePath("/"),
         image_size=(3840, 5120),
         lowres_image_size=(384, 512),
@@ -61,7 +61,7 @@ def test_next_image_prev_image_keeps_changed_params(
     worker_join(worker, qtbot)
 
     # modify params
-    current_params = opened_app.documents[0].params
+    current_params = opened_app.current_params
     first_modification = randomly_modified_params(current_params)
     assert current_params != first_modification
     step.show(first_modification)
@@ -71,7 +71,7 @@ def test_next_image_prev_image_keeps_changed_params(
     worker_join(worker, qtbot)
 
     # modify params again
-    second_modification = randomly_modified_params(opened_app.documents[0].params)
+    second_modification = randomly_modified_params(opened_app.current_params)
     step.show(second_modification)
 
     # go prev image
@@ -90,7 +90,7 @@ def test_run_workflow(qtbot: QtBot, opened_app: BrainwaysUI):
 
 
 @pytest.mark.skip
-def test_save_load_project(
+def test_save_load_subject(
     qtbot: QtBot,
     opened_app: BrainwaysUI,
     step_index: int,
@@ -102,12 +102,12 @@ def test_save_load_project(
     worker = opened_app.set_document_index_async(image_index)
     worker_join(worker, qtbot)
     save_path = Path(tmpdir) / "test"
-    docs = opened_app.project.documents
-    opened_app.save_project()
-    opened_app.project.documents = []
-    worker = opened_app.open_project_async(save_path)
+    docs = opened_app.subject.documents
+    opened_app.save_subject()
+    opened_app.subject.documents = []
+    worker = opened_app.open_subject_async(save_path)
     worker_join(worker, qtbot)
-    assert opened_app.project.documents == docs
+    assert opened_app.subject.documents == docs
 
 
 @pytest.mark.skip
@@ -120,9 +120,9 @@ def test_save_after_run_workflow(
     worker_join(worker, qtbot)
     save_path = Path(tmpdir) / "test"
     docs = opened_app.documents
-    opened_app.save_project()
+    opened_app.save_subject()
     opened_app.all_documents = []
-    worker = opened_app.open_project_async(save_path)
+    worker = opened_app.open_subject_async(save_path)
     worker_join(worker, qtbot)
     assert opened_app.documents == docs
 
@@ -167,7 +167,7 @@ def test_batch_run_model_ends_with_last_image(
 def test_export_cells_to_csv(opened_app: BrainwaysUI, tmpdir):
     cells = np.array([[0, 0, 0], [1, 1, 0]])
     opened_app.all_documents = [
-        ProjectDocument(
+        SliceInfo(
             path=ImagePath("/a"),
             image_size=(10, 10),
             lowres_image_size=(10, 10),
@@ -175,7 +175,7 @@ def test_export_cells_to_csv(opened_app: BrainwaysUI, tmpdir):
             region_areas={0: 1},
             cells=cells,
         ),
-        ProjectDocument(
+        SliceInfo(
             path=ImagePath("/b"),
             image_size=(10, 10),
             lowres_image_size=(10, 10),
@@ -192,22 +192,22 @@ def test_export_cells_to_csv(opened_app: BrainwaysUI, tmpdir):
 
 
 def test_autosave_on_set_image_index(qtbot: QtBot, opened_app: BrainwaysUI):
-    opened_app.save_project = Mock()
+    opened_app.save_subject = Mock()
     worker_join(opened_app.set_document_index_async(image_index=1), qtbot)
-    opened_app.save_project.assert_called_once()
+    opened_app.save_subject.assert_called_once()
 
 
 def test_autosave_on_set_step_index(qtbot: QtBot, opened_app: BrainwaysUI):
-    opened_app.save_project = Mock()
+    opened_app.save_subject = Mock()
     worker_join(opened_app.set_step_index_async(step_index=1), qtbot)
-    opened_app.save_project.assert_called_once()
+    opened_app.save_subject.assert_called_once()
 
 
 @pytest.mark.skip
 def test_autosave_on_close(qtbot: QtBot, opened_app: BrainwaysUI):
-    opened_app.save_project = Mock()
+    opened_app.save_subject = Mock()
     opened_app.viewer.close()
-    opened_app.save_project.assert_called_once()
+    opened_app.save_subject.assert_called_once()
 
 
 @pytest.mark.skip

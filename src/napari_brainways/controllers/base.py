@@ -66,4 +66,4 @@ class Controller(ABC):
 
     @property
     def pipeline(self) -> BrainwaysPipeline:
-        return self.ui.project.pipeline
+        return self.ui.subject.pipeline

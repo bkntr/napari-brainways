@@ -5,11 +5,8 @@ from typing import List, Optional, Tuple
 
 import numpy as np
 from bg_atlasapi.list_atlases import get_atlases_lastversions
-from brainways.project.brainways_project import BrainwaysProject
-from brainways.project.brainways_project_settings import (
-    ProjectDocument,
-    ProjectSettings,
-)
+from brainways.project.brainways_subject import BrainwaysSubject
+from brainways.project.info_classes import ProjectSettings, SliceInfo
 from brainways.utils.image import resize_image
 from brainways.utils.io_utils import ImagePath
 from brainways.utils.io_utils.readers import get_channels, get_scenes
@@ -39,17 +36,17 @@ class CreateProjectDialog(QDialog):
         self,
         parent: Optional[QWidget] = None,
         path: Optional[Path] = None,
-        project: Optional[BrainwaysProject] = None,
+        subject: Optional[BrainwaysSubject] = None,
     ):
         super().__init__(parent)
 
         self._add_documents_worker: Optional[FunctionWorker] = None
 
         self.setWindowTitle("Create Project")
-        self.project_location_button = QPushButton("&Browse...", self)
-        self.project_location_button.clicked.connect(self.on_project_location_clicked)
-        self.create_project_button = QPushButton("&Create", self)
-        self.create_project_button.clicked.connect(self.on_create_project_clicked)
+        self.subject_location_button = QPushButton("&Browse...", self)
+        self.subject_location_button.clicked.connect(self.on_subject_location_clicked)
+        self.create_subject_button = QPushButton("&Create", self)
+        self.create_subject_button.clicked.connect(self.on_create_subject_clicked)
         self.atlases_combobox = QComboBox()
         available_atlases = list(get_atlases_lastversions().keys()) or [
             "whs_sd_rat_39um"
@@ -59,7 +56,7 @@ class CreateProjectDialog(QDialog):
             self.on_selected_atlas_changed
         )
         self.channels_combobox = QComboBox()
-        self.project_location_line_edit = QLineEdit()
+        self.subject_location_line_edit = QLineEdit()
         self.add_images_button = QPushButton("&Add Image(s)...", self)
         self.add_images_button.clicked.connect(self.on_add_images_clicked)
         self.files_table = self.create_table()
@@ -70,8 +67,8 @@ class CreateProjectDialog(QDialog):
 
         cur_row = 0
         self.layout.addWidget(QLabel("Project Location:"), cur_row, 0)
-        self.layout.addWidget(self.project_location_line_edit, cur_row, 1)
-        self.layout.addWidget(self.project_location_button, cur_row, 2)
+        self.layout.addWidget(self.subject_location_line_edit, cur_row, 1)
+        self.layout.addWidget(self.subject_location_button, cur_row, 2)
 
         cur_row += 1
         self.layout.addWidget(QLabel("Atlas:"), cur_row, 0)
@@ -92,7 +89,7 @@ class CreateProjectDialog(QDialog):
             self.add_images_button, cur_row, 1, alignment=QtCore.Qt.AlignRight
         )
 
-        self.layout.addWidget(self.create_project_button, cur_row, 2)
+        self.layout.addWidget(self.create_subject_button, cur_row, 2)
 
         if parent is not None:
             self.resize(
@@ -100,20 +97,20 @@ class CreateProjectDialog(QDialog):
                 int(parent.parent().parent().parent().height() * 0.8),
             )
 
-        if project is not None:
-            self.project = project
-            self.project_location_line_edit.setText(str(self.project.project_path))
-            self.atlases_combobox.setCurrentText(self.project.settings.atlas)
-            self.create_project_button.setText("Done")
-            self.add_document_rows_async(self.project.documents)
+        if subject is not None:
+            self.subject = subject
+            self.subject_location_line_edit.setText(str(self.subject.subject_path))
+            self.atlases_combobox.setCurrentText(self.subject.settings.atlas)
+            self.create_subject_button.setText("Done")
+            self.add_document_rows_async(self.subject.documents)
         else:
-            self.project = BrainwaysProject(
+            self.subject = BrainwaysSubject(
                 settings=ProjectSettings(
                     atlas=self.atlases_combobox.currentText(), channel=0
                 ),
-                project_path=path,
+                subject_path=path,
             )
-            self.project_location_line_edit.setText(str(self.project.project_path))
+            self.subject_location_line_edit.setText(str(self.subject.subject_path))
             self.atlases_combobox.setCurrentIndex(0)
 
     def create_table(self) -> QTableWidget:
@@ -134,7 +131,7 @@ class CreateProjectDialog(QDialog):
         progress.setWindowTitle("Loading...")
         progress.show()
 
-        def on_work_returned(documents: List[ProjectDocument]):
+        def on_work_returned(documents: List[SliceInfo]):
             progress.close()
             self.add_document_rows_async(documents)
 
@@ -147,11 +144,11 @@ class CreateProjectDialog(QDialog):
                 if progress.wasCanceled():
                     # remove added documents if operation is cancelled
                     for document in documents:
-                        self.project.documents.remove(document)
+                        self.subject.documents.remove(document)
                     return []
                 for scene in range(len(get_scenes(filename))):
                     documents.append(
-                        self.project.add_image(
+                        self.subject.add_image(
                             ImagePath(filename=filename, scene=scene),
                             load_thumbnail=False,
                         )
@@ -182,8 +179,8 @@ class CreateProjectDialog(QDialog):
         )
         return image_widget
 
-    def get_thumbnail_image(self, document: ProjectDocument) -> np.ndarray:
-        thumbnail = self.project.read_lowres_image(document)
+    def get_thumbnail_image(self, document: SliceInfo) -> np.ndarray:
+        thumbnail = self.subject.read_lowres_image(document)
         thumbnail = resize_image(thumbnail, size=(256, 256), keep_aspect=True)
         thumbnail = np.tile(thumbnail[..., None], [1, 1, 3]).astype(np.float32)
         if document.ignore:
@@ -193,9 +190,7 @@ class CreateProjectDialog(QDialog):
         thumbnail = thumbnail.astype(np.uint8)
         return thumbnail
 
-    def add_document_rows_async(
-        self, documents: List[ProjectDocument]
-    ) -> FunctionWorker:
+    def add_document_rows_async(self, documents: List[SliceInfo]) -> FunctionWorker:
         progress = QProgressDialog(
             "Opening images...", "Cancel", 0, len(documents), self
         )
@@ -205,10 +200,10 @@ class CreateProjectDialog(QDialog):
         progress.show()
 
         def on_work_returned():
-            self.channels_combobox.setCurrentIndex(self.project.settings.channel)
+            self.channels_combobox.setCurrentIndex(self.subject.settings.channel)
             progress.close()
 
-        def on_work_yielded(result: Tuple[ProjectDocument, np.ndarray]):
+        def on_work_yielded(result: Tuple[SliceInfo, np.ndarray]):
             document, thumbnail = result
             row = self.files_table.rowCount()
             self.files_table.insertRow(row)
@@ -254,32 +249,32 @@ class CreateProjectDialog(QDialog):
         return worker
 
     @property
-    def project_path(self) -> Path:
-        return Path(self.project_location_line_edit.text())
+    def subject_path(self) -> Path:
+        return Path(self.subject_location_line_edit.text())
 
     def on_check_changed(
         self, _=None, checkbox: QCheckBox = None, document_index: int = None
     ):
         document = replace(
-            self.project.documents[document_index],
+            self.subject.documents[document_index],
             ignore=not checkbox.isChecked(),
         )
         thumbnail = self.get_thumbnail_image(document)
         self.files_table.setCellWidget(
             document_index, 1, self.get_image_widget(thumbnail)
         )
-        self.project.documents[document_index] = document
+        self.subject.documents[document_index] = document
 
     def on_selected_atlas_changed(self, _=None):
-        self.project.settings = replace(
-            self.project.settings, atlas=self.atlases_combobox.currentText()
+        self.subject.settings = replace(
+            self.subject.settings, atlas=self.atlases_combobox.currentText()
         )
 
     def on_selected_channel_changed(self, _=None):
         new_channel = int(self.channels_combobox.currentIndex())
-        self.project.settings = replace(self.project.settings, channel=new_channel)
+        self.subject.settings = replace(self.subject.settings, channel=new_channel)
         self.files_table.setRowCount(0)
-        self.add_document_rows_async(self.project.documents)
+        self.add_document_rows_async(self.subject.documents)
 
     def on_add_images_clicked(self, _=None):
         filenames, _ = QFileDialog.getOpenFileNames(
@@ -289,15 +284,15 @@ class CreateProjectDialog(QDialog):
         )
         self.add_filenames_async(filenames)
 
-    def on_project_location_clicked(self, _=None):
+    def on_subject_location_clicked(self, _=None):
         path, _ = QFileDialog.getSaveFileName(
             self,
             "Save Project",
             str(Path.home()),
-            "Brainways project (*.bin)",
+            "Brainways subject (*.bin)",
         )
-        self.project_location_line_edit.setText(path)
+        self.subject_location_line_edit.setText(path)
 
-    def on_create_project_clicked(self, _=None):
-        self.project.save(self.project_path)
+    def on_create_subject_clicked(self, _=None):
+        self.subject.save(self.subject_path)
         self.accept()

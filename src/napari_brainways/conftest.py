@@ -16,11 +16,8 @@ from brainways.pipeline.brainways_params import (
     BrainwaysParams,
     TPSTransformParams,
 )
-from brainways.project.brainways_project import BrainwaysProject
-from brainways.project.brainways_project_settings import (
-    ProjectDocument,
-    ProjectSettings,
-)
+from brainways.project.brainways_subject import BrainwaysSubject
+from brainways.project.info_classes import ProjectSettings, SliceInfo
 from brainways.utils.atlas.brainways_atlas import AtlasSlice, BrainwaysAtlas
 from brainways.utils.image import ImageSizeHW
 from brainways.utils.io_utils import ImagePath
@@ -66,33 +63,11 @@ def app(
     napari_viewer,
     test_data: Tuple[np.ndarray, AtlasSlice],
     mock_atlas: BrainwaysAtlas,
+    monkeypatch,
 ) -> BrainwaysUI:
-    with patch(
-        "brainways.project.brainways_project.BrainwaysAtlas",
-        return_value=mock_atlas,
-    ):
-        app = BrainwaysUI(napari_viewer)
-
-        # TODO: remove this comment
-        # test_image, test_atlas_slice = test_data
-        # # HEIGHT = test_image.shape[0]
-        # # WIDTH = test_image.shape[1]
-        # #
-        # # # for cur_step in app.steps:
-        # # #     cur_step.model = create_autospec(cur_step.model)
-        # # #     cur_step.model.atlas = mock_atlas
-        # # #     cur_step.model.image_to_atlas_transform.return_value = (
-        # # #         DepthRegistrationParams(td=0, rx=0, ry=0)
-        # # #     )
-        # # #     cur_step.model.run_cell_detector = Mock(
-        # # #         return_value=np.ones(shape=(HEIGHT, WIDTH), dtype=np.uint8)
-        # # #     )
-        # # #     cur_step.model.get_atlas_slice = Mock(return_value=test_atlas_slice)
-        # # #     cur_step.model.run_registration.return_value = AtlasRegistrationParams(
-        # # #         ap=random.uniform(0, 1)
-        # # #     )
-        # # #     cur_step.read_image = Mock(return_value=test_image)
-        yield app
+    monkeypatch.setattr(BrainwaysAtlas, "load", Mock(return_value=mock_atlas))
+    app = BrainwaysUI(napari_viewer)
+    yield app
 
 
 @fixture
@@ -100,9 +75,9 @@ def opened_app(
     qtbot: QtBot,
     app: BrainwaysUI,
     test_data: Tuple[np.ndarray, AtlasSlice],
-    project_path: Path,
+    subject_path: Path,
 ):
-    worker = app.open_project_async(project_path)
+    worker = app.open_subject_async(subject_path)
     worker_join(worker, qtbot)
     return app
 
@@ -198,9 +173,9 @@ def mock_image_path(test_data: Tuple[np.ndarray, AtlasSlice], tmpdir) -> ImagePa
 
 
 @pytest.fixture
-def mock_project_documents(
+def mock_subject_documents(
     mock_image_path: ImagePath, test_data: Tuple[np.ndarray, AtlasSlice]
-) -> List[ProjectDocument]:
+) -> List[SliceInfo]:
     test_image, test_atlas_slice = test_data
     image_height = test_image.shape[0]
     image_width = test_image.shape[1]
@@ -225,12 +200,11 @@ def mock_project_documents(
         shutil.copy(mock_image_path.filename, doc_image_filename)
         doc_image_path = replace(mock_image_path, filename=str(doc_image_filename))
         documents.append(
-            ProjectDocument(
+            SliceInfo(
                 path=doc_image_path,
                 image_size=(image_height, image_width),
                 lowres_image_size=(image_height, image_width),
                 params=params,
-                cells=np.array([[0.5, 0.5]]),
                 ignore=i == 0,
             )
         )
@@ -238,33 +212,33 @@ def mock_project_documents(
 
 
 @pytest.fixture
-def mock_project_settings() -> ProjectSettings:
+def mock_subject_settings() -> ProjectSettings:
     return ProjectSettings(atlas="MOCK_ATLAS", channel=0)
 
 
 @pytest.fixture
-def project_path(
+def subject_path(
     tmpdir,
-    mock_project_settings: ProjectSettings,
-    mock_project_documents: List[ProjectDocument],
+    mock_subject_settings: ProjectSettings,
+    mock_subject_documents: List[SliceInfo],
 ) -> Path:
-    project_path = Path(tmpdir) / "project/brainways.bin"
-    project_path.parent.mkdir()
-    serialized_project_settings = asdict(mock_project_settings)
-    serialized_project_documents = [asdict(doc) for doc in mock_project_documents]
-    with open(project_path, "wb") as f:
-        pickle.dump((serialized_project_settings, serialized_project_documents), f)
-    yield project_path
+    subject_path = Path(tmpdir) / "subject/brainways.bin"
+    subject_path.parent.mkdir()
+    serialized_subject_settings = asdict(mock_subject_settings)
+    serialized_subject_documents = [asdict(doc) for doc in mock_subject_documents]
+    with open(subject_path, "wb") as f:
+        pickle.dump((serialized_subject_settings, serialized_subject_documents), f)
+    yield subject_path
 
 
 @pytest.fixture
-def brainways_project(
-    project_path: Path,
+def brainways_subject(
+    subject_path: Path,
     test_data: Tuple[np.ndarray, AtlasSlice],
     mock_atlas: BrainwaysAtlas,
-) -> BrainwaysProject:
-    brainways_project = BrainwaysProject.open(project_path)
-    brainways_project.atlas = mock_atlas
-    for document in brainways_project.documents:
-        brainways_project.read_lowres_image(document)
-    return brainways_project
+) -> BrainwaysSubject:
+    brainways_subject = BrainwaysSubject.open(subject_path)
+    brainways_subject.atlas = mock_atlas
+    for document in brainways_subject.documents:
+        brainways_subject.read_lowres_image(document)
+    return brainways_subject
