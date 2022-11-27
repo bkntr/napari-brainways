@@ -10,6 +10,9 @@ from brainways.pipeline.brainways_params import BrainwaysParams
 from brainways.project.brainways_project import BrainwaysProject
 from brainways.project.brainways_subject import BrainwaysSubject
 from brainways.project.info_classes import SliceInfo
+from brainways.utils.cell_detection_importer.cell_detection_importer import (
+    CellDetectionImporter,
+)
 from napari.qt.threading import FunctionWorker, GeneratorWorker, create_worker
 from qtpy.QtWidgets import QVBoxLayout, QWidget
 
@@ -91,11 +94,6 @@ class BrainwaysUI(QWidget):
         self._current_valid_subject_index = None
         self._current_valid_document_index = 0
         self._current_step_index = 0
-
-    def _load_atlas_async(self) -> FunctionWorker:
-        return self.do_work_async(
-            self.current_subject.load_atlas(), progress_label="Loading atlas..."
-        )
 
     def _run_workflow_single_doc(self, doc_i: int) -> None:
         raise NotImplementedError()
@@ -222,9 +220,20 @@ class BrainwaysUI(QWidget):
             self.persist_current_params()
         self.current_subject.save()
 
-    def export_cells(self, path: Path) -> None:
-        df = self.current_subject.cell_count_summary()
-        df.to_csv(path, index=False)
+    def create_excel_async(
+        self,
+        path: Path,
+        min_region_area_um2: Optional[int] = None,
+        cells_per_area_um2: Optional[int] = None,
+    ) -> FunctionWorker:
+        return self.do_work_async(
+            self.project.create_excel_iter,
+            path=path,
+            min_region_area_um2=min_region_area_um2,
+            cells_per_area_um2=cells_per_area_um2,
+            progress_label="Creating Results Excel...",
+            progress_max_value=len(self.project.subjects),
+        )
 
     def set_subject_index_async(
         self,
@@ -358,20 +367,16 @@ class BrainwaysUI(QWidget):
         worker.start()
         return worker
 
-    def _import_cells(self, path: Path) -> None:
-        for i, document in self.current_subject.import_cells_yield_progress(path):
-            yield i
-        self.current_subject.save()
-
-    def import_cells_async(self, path: Path) -> FunctionWorker:
-        self.widget.show_progress_bar(
-            max_value=len(self.current_subject.valid_documents)
+    def import_cell_detections_async(
+        self, path: Path, importer: CellDetectionImporter
+    ) -> FunctionWorker:
+        return self.do_work_async(
+            self.project.import_cell_detections_iter,
+            importer=importer,
+            cell_detections_root=path,
+            progress_label="Importing Cell Detections...",
+            progress_max_value=self.project.n_valid_images,
         )
-        worker = create_worker(self._import_cells, path)
-        worker.yielded.connect(self._progress_yielded)
-        worker.returned.connect(self._progress_returned)
-        worker.start()
-        return worker
 
     def show_cells_view(self):
         self.save_subject()
@@ -386,15 +391,6 @@ class BrainwaysUI(QWidget):
         )
         self.cell_viewer_controller.show_cells(cells)
 
-    def _progress_yielded(self, i: int) -> None:
-        raise NotImplementedError()
-        # self.widget.set_image_index(i + 1)
-        # self.widget.update_progress_bar(i + 1)
-        # view_images, params = self._prepare_view_images_and_params(
-        #     self.current_document
-        # )
-        # self.current_step.show(view_images, params)
-
     def _progress_returned(self) -> None:
         self.widget.hide_progress_bar()
 
@@ -405,9 +401,12 @@ class BrainwaysUI(QWidget):
         yield_callback: Optional[Callable] = None,
         error_callback: Optional[Callable] = None,
         progress_label: Optional[str] = None,
+        progress_max_value: int = 0,
         **kwargs,
     ) -> FunctionWorker:
-        self.widget.show_progress_bar(label=progress_label)
+        self.widget.show_progress_bar(
+            label=progress_label, max_value=progress_max_value
+        )
         worker = create_worker(function, **kwargs)
         worker.returned.connect(return_callback or self._on_work_returned)
         if isinstance(worker, GeneratorWorker):
@@ -419,11 +418,14 @@ class BrainwaysUI(QWidget):
     def _on_work_returned(self):
         self.widget.hide_progress_bar()
 
-    def _on_work_yielded(self, label: str = "", value: int = 0):
-        self.widget.update_progress_bar(value=value, label=label)
+    def _on_work_yielded(self, text: Optional[str] = None, value: Optional[int] = None):
+        self.widget.update_progress_bar(value=value, text=text)
 
     def _on_work_error(self):
         self.widget.hide_progress_bar()
+
+    def _on_progress(self) -> None:
+        self.widget.progress_bar.value += 1
 
     @property
     def _current_document_index(self):
