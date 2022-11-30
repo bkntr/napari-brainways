@@ -322,8 +322,11 @@ class WorkflowView(QWidget):
         path = QFileDialog.getExistingDirectory(
             self,
             "Create Brainways Project",
-            str(Path.home()),
+            str(self._prev_path),
         )
+        if path == "":
+            return
+        self._prev_path = str(Path(path))
         dialog = CreateProjectDialog(self, path=Path(path))
         result = dialog.exec()
         if result == QDialog.DialogCode.Rejected:
@@ -413,6 +416,7 @@ class WorkflowView(QWidget):
         )
         if path == "":
             return
+        self._prev_path = str(Path(path).parent)
 
         values = request_values(
             title="Excel Parameters",
@@ -453,6 +457,7 @@ class WorkflowView(QWidget):
         )
         if path == "":
             return
+        self._prev_path = str(Path(path))
 
         importer_type = request_values(
             title="Import Cell Detections",

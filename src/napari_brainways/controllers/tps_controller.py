@@ -3,12 +3,15 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import TYPE_CHECKING, List
 
+import kornia.geometry as KG
+import napari.layers
 import numpy as np
+import torch
 from brainways.pipeline.brainways_params import BrainwaysParams, TPSTransformParams
 from brainways.pipeline.brainways_pipeline import PipelineStep
+from brainways.transforms.affine_transform_2d import BrainwaysAffineTransform2D
 from brainways.transforms.tps_transform import TPSTransform
-from brainways.utils.image import annotation_outline, brain_mask, nonzero_bounding_box
-from napari.layers import Points
+from brainways.utils.image import brain_mask, nonzero_bounding_box
 from napari.qt.threading import FunctionWorker
 
 from napari_brainways.controllers.base import Controller
@@ -24,10 +27,10 @@ class TpsController(Controller):
         super().__init__(ui=ui)
         self._params: BrainwaysParams | None = None
         self._image: np.ndarray | None = None
-        self.input_layer = None
-        self.atlas_layer = None
-        self.points_input_layer: Points | None = None
-        self.points_atlas_layer: Points | None = None
+        self.input_layer: napari.layers.Image | None = None
+        self.atlas_layer: napari.layers.Labels | None = None
+        self.points_input_layer: napari.layers.Points | None = None
+        self.points_atlas_layer: napari.layers.Points | None = None
         self.widget = TpsWidget(self)
         self._key_bindings = None
         self.widget.hide()
@@ -85,14 +88,18 @@ class TpsController(Controller):
             self._next_params = []
 
         self._params = params
+        display_scale = 1 / min(params.affine.sx, params.affine.sy)
+
         if image is not None:
             self._image = image
             self._next_params = []
             self._prev_params = []
 
             atlas_slice = self.pipeline.get_atlas_slice(params)
-            self.atlas_layer.data = annotation_outline(atlas_slice.annotation).numpy()
-
+            self.atlas_layer.data = atlas_slice.annotation.numpy()
+            self.atlas_layer.scale = (display_scale, display_scale)
+            self.points_input_layer.scale = (display_scale, display_scale)
+            self.points_atlas_layer.scale = (display_scale, display_scale)
         with self.points_input_layer.events.data.blocker():
             np_pts = params.tps.points_src[:, ::-1]
             self.points_input_layer.data = np_pts.copy()
@@ -102,11 +109,41 @@ class TpsController(Controller):
             self.points_atlas_layer.data = np_pts.copy()
             self.points_atlas_layer.selected_data = set()
 
-        transform = self.pipeline.get_image_to_atlas_transform(
-            params, lowres_image_size=self._image.shape, until_step=PipelineStep.TPS
+        scale_mat = KG.get_affine_matrix2d(
+            translations=torch.as_tensor([[0, 0]], dtype=torch.float32),
+            center=torch.as_tensor([[0, 0]], dtype=torch.float32),
+            scale=torch.as_tensor(
+                [[display_scale, display_scale]], dtype=torch.float32
+            ),
+            angle=torch.as_tensor([0], dtype=torch.float32),
         )
+        affine_transform = BrainwaysAffineTransform2D(
+            params.affine, input_size=self._image.shape
+        )
+        affine_for_display_mat = scale_mat @ affine_transform.mat
+        affine_for_display = BrainwaysAffineTransform2D(mat=affine_for_display_mat)
+
+        transform = self.pipeline.get_image_to_atlas_transform(
+            params,
+            lowres_image_size=self._image.shape,
+            until_step=PipelineStep.TPS,
+        )
+        transform.affine_2d_transform = affine_for_display
+
+        tps_params_for_display = replace(
+            params.tps,
+            points_src=params.tps.points_src * display_scale,
+            points_dst=params.tps.points_dst * display_scale,
+        )
+        transform.tps_transform = TPSTransform(tps_params_for_display)
+
+        output_size = (
+            int(self.atlas_layer.data.shape[0] * display_scale),
+            int(self.atlas_layer.data.shape[1] * display_scale),
+        )
+
         registered_image = transform.transform_image(
-            image=self._image, output_size=self.atlas_layer.data.shape
+            image=self._image, output_size=output_size
         )
         self.input_layer.data = registered_image
 
@@ -122,23 +159,24 @@ class TpsController(Controller):
             np.zeros((10, 10), np.uint8),
             name="Input",
         )
-        self.atlas_layer = self.ui.viewer.add_image(
+        self.atlas_layer = self.ui.viewer.add_labels(
             np.zeros((10, 10), np.uint8),
             name="Atlas",
-            opacity=0.35,
-            colormap="yellow",
         )
+        self.atlas_layer.contour = True
         self.points_input_layer = self.ui.viewer.add_points(
             name="Input Points",
             face_color="green",
-            edge_width=0.5,
+            edge_color="#00ff0064",
             size=5,
+            edge_width=0.5,
             visible=False,
         )
         self.points_atlas_layer = self.ui.viewer.add_points(
             name="Atlas Points",
             face_color="blue",
-            edge_width=0.5,
+            edge_color="#0000ff64",
+            edge_width=0.8,
             size=5,
         )
         self.points_atlas_layer.mode = "select"
@@ -165,6 +203,7 @@ class TpsController(Controller):
         self.ui.viewer.layers.remove(self.points_input_layer)
         self.ui.viewer.layers.remove(self.points_atlas_layer)
         self._image = None
+        self._params = None
         self.input_layer = None
         self.atlas_layer = None
         self.points_input_layer = None
@@ -204,9 +243,13 @@ class TpsController(Controller):
             )
             self.points_input_layer.add(point_to_add_transformed[0, ::-1])
             self.points_atlas_layer.mode = "select"
+
+        points_src = self.points_input_layer.data[:, ::-1]
+        points_dst = self.points_atlas_layer.data[:, ::-1]
+
         tps_params = TPSTransformParams(
-            points_src=self.points_input_layer.data[:, ::-1].copy().astype(np.float32),
-            points_dst=self.points_atlas_layer.data[:, ::-1].copy().astype(np.float32),
+            points_src=points_src.astype(np.float32),
+            points_dst=points_dst.astype(np.float32),
         )
         updated_params = replace(self._params, tps=tps_params)
         self.show(params=updated_params, from_ui=True)
