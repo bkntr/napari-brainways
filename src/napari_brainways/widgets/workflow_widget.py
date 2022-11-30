@@ -3,13 +3,15 @@ import os
 from pathlib import Path
 from typing import Callable, List, Union
 
+import importlib_resources
+import PIL.Image
 from brainways.project.info_classes import ExcelMode
 from brainways.utils.cell_detection_importer.utils import (
     cell_detection_importer_types,
     get_cell_detection_importer,
 )
 from magicgui import magicgui
-from magicgui.widgets import Container, Label, PushButton, Widget, request_values
+from magicgui.widgets import Container, Image, Label, PushButton, Widget, request_values
 from qtpy.QtWidgets import (
     QDialog,
     QFileDialog,
@@ -205,7 +207,9 @@ class StepControls(TitledGroupBox):
     def __init__(self, steps: List[Controller]):
         self.steps = steps
         self.title = QLabel("")
-        self.title.font().setPointSize(11)
+        font = self.title.font()
+        font.setPointSize(11)
+        self.title.setFont(font)
         self.widgets = [step.widget for step in steps if step.widget is not None]
         super().__init__(title=self.title, widgets=self.widgets)
 
@@ -254,6 +258,42 @@ class ProgressBar(QWidget):
         self._label_widget.setText(value)
 
 
+class HeaderSection(QWidget):
+    def __init__(self, progress_bar: ProgressBar):
+        super().__init__()
+
+        self.header = self._build_header()
+        self.progress_bar = progress_bar
+        self.setLayout(QVBoxLayout())
+        self.layout().addWidget(self.header)
+        self.layout().addWidget(progress_bar)
+        self.setMinimumHeight(80)
+
+    def _build_header(self):
+        package = Path(importlib_resources.files("napari_brainways"))
+        logo = Image(value=PIL.Image.open(package / "resources/logo.png"))
+        title = QLabel("Brainways")
+        font = title.font()
+        font.setPointSize(16)
+        title.setFont(font)
+
+        header_container = QWidget()
+        header_container.setLayout(QHBoxLayout())
+        header_container.layout().addWidget(logo.native)
+        header_container.layout().addWidget(title)
+
+        # header_container.layout().setAlignment(title, Qt.AlignLeft)
+        return header_container
+
+    def show_progress(self):
+        self.header.hide()
+        self.progress_bar.show()
+
+    def hide_progress(self):
+        self.header.show()
+        self.progress_bar.hide()
+
+
 class WorkflowView(QWidget):
     def __init__(self, controller, steps: List[Controller]):
         super().__init__(controller)
@@ -289,6 +329,7 @@ class WorkflowView(QWidget):
         )
         self.step_controls = StepControls(steps=steps)
         self.progress_bar = ProgressBar()
+        self.header_section = HeaderSection(progress_bar=self.progress_bar)
         self.subject_controls = self._stack_widgets(
             [
                 self.image_navigation,
@@ -302,9 +343,9 @@ class WorkflowView(QWidget):
 
         layout = self._stack_widgets(
             [
+                self.header_section,
                 self.project_buttons,
                 self.subject_controls,
-                self.progress_bar,
             ]
         )
         self.setLayout(layout.layout())
@@ -510,8 +551,8 @@ class WorkflowView(QWidget):
         self.setEnabled(False)
         self.progress_bar.text = label
         self.progress_bar.max = max_value
-        self.progress_bar.show()
+        self.header_section.show_progress()
 
     def hide_progress_bar(self):
         self.setEnabled(True)
-        self.progress_bar.hide()
+        self.header_section.hide_progress()
