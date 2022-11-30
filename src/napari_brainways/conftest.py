@@ -1,3 +1,4 @@
+import json
 import os
 import pickle
 import shutil
@@ -262,8 +263,8 @@ def project_path(
         slice_infos=mock_subject_documents,
     )
     serialized_project_settings = asdict(mock_project_settings)
-    with open(project_path, "wb") as f:
-        pickle.dump(serialized_project_settings, f)
+    with open(project_path, "w") as f:
+        json.dump(serialized_project_settings, f)
     yield project_path
 
 

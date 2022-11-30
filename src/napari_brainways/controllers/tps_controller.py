@@ -3,13 +3,10 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import TYPE_CHECKING, List
 
-import kornia.geometry as KG
 import napari.layers
 import numpy as np
-import torch
 from brainways.pipeline.brainways_params import BrainwaysParams, TPSTransformParams
 from brainways.pipeline.brainways_pipeline import PipelineStep
-from brainways.transforms.affine_transform_2d import BrainwaysAffineTransform2D
 from brainways.transforms.tps_transform import TPSTransform
 from brainways.utils.image import brain_mask, nonzero_bounding_box
 from napari.qt.threading import FunctionWorker
@@ -109,43 +106,12 @@ class TpsController(Controller):
             self.points_atlas_layer.data = np_pts.copy()
             self.points_atlas_layer.selected_data = set()
 
-        scale_mat = KG.get_affine_matrix2d(
-            translations=torch.as_tensor([[0, 0]], dtype=torch.float32),
-            center=torch.as_tensor([[0, 0]], dtype=torch.float32),
-            scale=torch.as_tensor(
-                [[display_scale, display_scale]], dtype=torch.float32
-            ),
-            angle=torch.as_tensor([0], dtype=torch.float32),
-        )
-        affine_transform = BrainwaysAffineTransform2D(
-            params.affine, input_size=self._image.shape
-        )
-        affine_for_display_mat = scale_mat @ affine_transform.mat
-        affine_for_display = BrainwaysAffineTransform2D(mat=affine_for_display_mat)
-
-        transform = self.pipeline.get_image_to_atlas_transform(
-            params,
-            lowres_image_size=self._image.shape,
+        self.input_layer.data = self.pipeline.transform_image(
+            image=self._image,
+            params=params,
             until_step=PipelineStep.TPS,
+            scale=display_scale,
         )
-        transform.affine_2d_transform = affine_for_display
-
-        tps_params_for_display = replace(
-            params.tps,
-            points_src=params.tps.points_src * display_scale,
-            points_dst=params.tps.points_dst * display_scale,
-        )
-        transform.tps_transform = TPSTransform(tps_params_for_display)
-
-        output_size = (
-            int(self.atlas_layer.data.shape[0] * display_scale),
-            int(self.atlas_layer.data.shape[1] * display_scale),
-        )
-
-        registered_image = transform.transform_image(
-            image=self._image, output_size=output_size
-        )
-        self.input_layer.data = registered_image
 
         if image is not None:
             update_layer_contrast_limits(self.input_layer)
