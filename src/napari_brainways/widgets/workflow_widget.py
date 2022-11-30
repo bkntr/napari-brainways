@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 from typing import Callable, List, Union
 
+from brainways.project.info_classes import ExcelMode
 from brainways.utils.cell_detection_importer.utils import (
     cell_detection_importer_types,
     get_cell_detection_importer,
@@ -420,6 +421,15 @@ class WorkflowView(QWidget):
 
         values = request_values(
             title="Excel Parameters",
+            excel_mode=dict(
+                value=ExcelMode.ROW_PER_SUBJECT,
+                annotation=ExcelMode,
+                label="Excel Mode",
+                options=dict(
+                    tooltip="Output a row per subject or row per image (useful for "
+                    "error analysis)"
+                ),
+            ),
             min_region_area_um2=dict(
                 value=250,
                 annotation=int,
@@ -442,6 +452,7 @@ class WorkflowView(QWidget):
             Path(path),
             min_region_area_um2=values["min_region_area_um2"],
             cells_per_area_um2=values["cells_per_area_um2"],
+            excel_mode=values["excel_mode"],
         )
 
     def on_import_cells_clicked(self, _=None):

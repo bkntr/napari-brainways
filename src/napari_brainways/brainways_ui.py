@@ -9,7 +9,7 @@ import numpy as np
 from brainways.pipeline.brainways_params import BrainwaysParams
 from brainways.project.brainways_project import BrainwaysProject
 from brainways.project.brainways_subject import BrainwaysSubject
-from brainways.project.info_classes import SliceInfo
+from brainways.project.info_classes import ExcelMode, SliceInfo
 from brainways.utils.cell_detection_importer.cell_detection_importer import (
     CellDetectionImporter,
 )
@@ -225,12 +225,14 @@ class BrainwaysUI(QWidget):
         path: Path,
         min_region_area_um2: Optional[int] = None,
         cells_per_area_um2: Optional[int] = None,
+        excel_mode: ExcelMode = ExcelMode.ROW_PER_SUBJECT,
     ) -> FunctionWorker:
         return self.do_work_async(
             self.project.create_excel_iter,
             path=path,
             min_region_area_um2=min_region_area_um2,
             cells_per_area_um2=cells_per_area_um2,
+            excel_mode=excel_mode,
             progress_label="Creating Results Excel...",
             progress_max_value=len(self.project.subjects),
         )
