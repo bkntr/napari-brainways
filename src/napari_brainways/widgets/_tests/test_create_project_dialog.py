@@ -10,14 +10,14 @@ from pytestqt.qtbot import QtBot
 from qtpy.QtWidgets import QCheckBox
 
 from napari_brainways.test_utils import worker_join
-from napari_brainways.widgets.create_subject_dialog import CreateProjectDialog
+from napari_brainways.widgets.create_subject_dialog import CreateSubjectDialog
 
 
 @fixture
 def create_subject_dialog(
     qtbot: QtBot, mock_image_path: ImagePath, test_image_size: ImageSizeHW
-) -> CreateProjectDialog:
-    create_subject_dialog = CreateProjectDialog()
+) -> CreateSubjectDialog:
+    create_subject_dialog = CreateSubjectDialog()
     worker = create_subject_dialog.add_filenames_async([str(mock_image_path.filename)])
     worker_join(worker, qtbot)
     worker_join(create_subject_dialog._add_documents_worker, qtbot)
@@ -38,7 +38,7 @@ def create_subject_document(
 
 
 def test_documents(
-    create_subject_dialog: CreateProjectDialog,
+    create_subject_dialog: CreateSubjectDialog,
     create_subject_document: SliceInfo,
 ):
     documents = create_subject_dialog.subject.documents
@@ -47,7 +47,7 @@ def test_documents(
 
 
 def test_ignore(
-    create_subject_dialog: CreateProjectDialog,
+    create_subject_dialog: CreateSubjectDialog,
     create_subject_document: SliceInfo,
 ):
     checkbox: QCheckBox = create_subject_dialog.files_table.cellWidget(0, 0)
@@ -57,7 +57,7 @@ def test_ignore(
     assert documents == expected
 
 
-def test_subject_path(create_subject_dialog: CreateProjectDialog):
+def test_subject_path(create_subject_dialog: CreateSubjectDialog):
     assert (
         create_subject_dialog.subject_path == create_subject_dialog.subject.subject_path
     )
@@ -69,14 +69,14 @@ def test_edit_subject(qtbot: QtBot, create_subject_document: SliceInfo, tmpdir):
         documents=[create_subject_document],
         subject_path=Path(tmpdir / "new"),
     )
-    dialog = CreateProjectDialog(subject=subject)
+    dialog = CreateSubjectDialog(subject=subject)
     worker_join(dialog._add_documents_worker, qtbot)
     assert dialog.subject == subject
     assert dialog.files_table.rowCount() == 1
     assert dialog.subject_path == subject.subject_path
 
 
-def test_uncheck_check(create_subject_dialog: CreateProjectDialog):
+def test_uncheck_check(create_subject_dialog: CreateSubjectDialog):
     checkbox: QCheckBox = create_subject_dialog.files_table.cellWidget(0, 0)
     checkbox.setChecked(False)
     checkbox.setChecked(True)

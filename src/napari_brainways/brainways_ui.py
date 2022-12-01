@@ -466,5 +466,9 @@ class BrainwaysUI(QWidget):
         self.current_document = replace(self.current_document, params=value)
 
     @property
+    def current_subject_index(self):
+        return self._current_valid_subject_index
+
+    @property
     def subject_size(self):
         return len(self.current_subject.valid_documents)
