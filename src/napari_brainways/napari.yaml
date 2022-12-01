@@ -8,6 +8,9 @@ contributions:
     - id: napari-brainways.make_qwidget
       python_name: napari_brainways.brainways_ui:BrainwaysUI
       title: Make BrainwaysUI widget
+    - id: napari-brainways.read_bwp
+      title: Read ".bwp" files
+      python_name: napari_brainways.napari_reader:get_reader
   sample_data:
     - command: napari-brainways.make_sample_data
       display_name: napari Brainways
@@ -15,3 +18,8 @@ contributions:
   widgets:
     - command: napari-brainways.make_qwidget
       display_name: BrainwaysUI
+  readers:
+    - command: napari-brainways.read_bwp
+      filename_patterns:
+        - '*.bwp'
+      accepts_directories: true
