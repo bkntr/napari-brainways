@@ -35,7 +35,9 @@ class Controller(ABC):
         ...
 
     @abstractmethod
-    def default_params(self, image: np.ndarray, params: BrainwaysParams):
+    def default_params(
+        self, image: np.ndarray, params: BrainwaysParams
+    ) -> BrainwaysParams:
         ...
 
     @staticmethod

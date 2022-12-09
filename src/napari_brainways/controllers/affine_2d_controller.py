@@ -109,7 +109,9 @@ class Affine2DController(Controller):
     def has_current_step_params(params: BrainwaysParams) -> bool:
         return params.affine is not None
 
-    def default_params(self, image: np.ndarray, params: BrainwaysParams):
+    def default_params(
+        self, image: np.ndarray, params: BrainwaysParams
+    ) -> BrainwaysParams:
         return self.run_model(image=image, params=params)
 
     def run_model(self, image: np.ndarray, params: BrainwaysParams) -> BrainwaysParams:

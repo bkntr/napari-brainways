@@ -45,6 +45,7 @@ class BrainwaysUI(QWidget):
             self.affine_2d_controller,
             self.tps_controller,
             self.annotation_viewer_controller,
+            self.cell_viewer_controller,
         ]
 
         self.project: Optional[BrainwaysProject] = None
@@ -188,7 +189,7 @@ class BrainwaysUI(QWidget):
             valid_document_index = self._current_valid_document_index
         _, document = self.current_subject.valid_documents[valid_document_index]
         self.viewer.title = (
-            f"{self.current_subject.subject_path.name} - " f"{document.path}"
+            f"{self.current_subject.subject_path.name} - {document.path}"
         )
 
     def _on_project_opened(self):

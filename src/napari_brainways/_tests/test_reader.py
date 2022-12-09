@@ -9,8 +9,8 @@ from napari_brainways.napari_reader import get_reader
 
 
 # tmp_path is a pytest fixture
-def test_reader(napari_viewer: Viewer):
-    BrainwaysUI.open_project_async = Mock()
+def test_reader(napari_viewer: Viewer, monkeypatch):
+    monkeypatch.setattr(BrainwaysUI, "open_project_async", Mock())
     package = Path(importlib_resources.files("napari_brainways"))
     sample_data_dir = str(package / "resources/sample_data/")
 
