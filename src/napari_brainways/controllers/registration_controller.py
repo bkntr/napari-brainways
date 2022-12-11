@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import functools
 from dataclasses import replace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable
 
 import napari.layers
 import numpy as np
@@ -22,7 +21,6 @@ class RegistrationController(Controller):
     def __init__(self, ui: BrainwaysUI):
         super().__init__(ui=ui)
         self.widget = RegistrationView(self)
-        self.widget.hide()
         self.input_layer: napari.layers.Image | None = None
         self.mask_layer: napari.layers.Image | None = None
         self.atlas_slice_layer: napari.layers.Image | None = None
@@ -38,51 +36,51 @@ class RegistrationController(Controller):
     def register_key_bindings(self):
         key_bindings = {
             "Left": (
-                functools.partial(self.widget.modify_ap, value=-1),
+                self.get_keybind_fn(self.widget.modify_ap, value=-1),
                 "Decrease AP",
             ),
             "Right": (
-                functools.partial(self.widget.modify_ap, value=1),
+                self.get_keybind_fn(self.widget.modify_ap, value=1),
                 "Increase AP",
             ),
             "Shift-Left": (
-                functools.partial(self.widget.modify_ap, value=-10),
+                self.get_keybind_fn(self.widget.modify_ap, value=-10),
                 "Decrease AP -10",
             ),
             "Shift-Right": (
-                functools.partial(self.widget.modify_ap, value=10),
+                self.get_keybind_fn(self.widget.modify_ap, value=10),
                 "Increase AP +10",
             ),
             "Control-Left": (
-                functools.partial(self.widget.modify_hemisphere, value="left"),
+                self.get_keybind_fn(self.widget.modify_hemisphere, value="left"),
                 "Left Hemisphere",
             ),
             "Control-Right": (
-                functools.partial(self.widget.modify_hemisphere, value="right"),
+                self.get_keybind_fn(self.widget.modify_hemisphere, value="right"),
                 "Right Hemisphere",
             ),
             "Control-Down": (
-                functools.partial(self.widget.modify_hemisphere, value="both"),
+                self.get_keybind_fn(self.widget.modify_hemisphere, value="both"),
                 "Both Hemispheres",
             ),
             "Control-Up": (
-                functools.partial(self.widget.modify_hemisphere, value="both"),
+                self.get_keybind_fn(self.widget.modify_hemisphere, value="both"),
                 "Both Hemispheres",
             ),
             "Alt-Left": (
-                functools.partial(self.widget.modify_rot_horizontal, value=-1),
+                self.get_keybind_fn(self.widget.modify_rot_horizontal, value=-1),
                 "Horizontal Rotation Left",
             ),
             "Alt-Right": (
-                functools.partial(self.widget.modify_rot_horizontal, value=1),
+                self.get_keybind_fn(self.widget.modify_rot_horizontal, value=1),
                 "Horizontal Rotation Right",
             ),
             "Alt-Up": (
-                functools.partial(self.widget.modify_rot_sagittal, value=-1),
+                self.get_keybind_fn(self.widget.modify_rot_sagittal, value=-1),
                 "Sagittal Rotation Up",
             ),
             "Alt-Down": (
-                functools.partial(self.widget.modify_rot_sagittal, value=1),
+                self.get_keybind_fn(self.widget.modify_rot_sagittal, value=1),
                 "Sagittal Rotation Down",
             ),
             "?": (
@@ -94,6 +92,12 @@ class RegistrationController(Controller):
             self.ui.viewer.bind_key(key, func, overwrite=True)
 
         self._key_bindings = key_bindings
+
+    def get_keybind_fn(self, function: Callable, value: Any) -> Callable:
+        def _fn(_):
+            function(value=value)
+
+        return _fn
 
     def show_help(self, _=None):
         self.widget.show_help(key_bindings=self._key_bindings)
@@ -206,8 +210,6 @@ class RegistrationController(Controller):
         if self._is_open:
             return
 
-        self.widget.show()
-
         self.input_layer = self.ui.viewer.add_image(
             np.zeros((512, 512), np.uint8),
             name="Input",
@@ -236,7 +238,6 @@ class RegistrationController(Controller):
         if not self._is_open:
             return
 
-        self.widget.hide()
         self.unregister_key_bindings()
         self.ui.viewer.layers.remove(self.input_layer)
         self.ui.viewer.layers.remove(self.mask_layer)

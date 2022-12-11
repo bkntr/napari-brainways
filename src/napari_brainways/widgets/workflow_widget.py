@@ -13,7 +13,8 @@ from brainways.utils.cell_detection_importer.utils import (
     get_cell_detection_importer,
 )
 from magicgui import magicgui
-from magicgui.widgets import Container, Image, Label, PushButton, Widget, request_values
+from magicgui.widgets import Image, request_values
+from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
     QDialog,
     QFileDialog,
@@ -21,6 +22,9 @@ from qtpy.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QProgressBar,
+    QPushButton,
+    QScrollArea,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -50,9 +54,10 @@ class WorkflowView(QWidget):
             prev_callback=self.controller.prev_subject,
             next_callback=self.controller.next_subject,
             add_subject_callback=self.on_add_subject_clicked,
+            visible=False,
         )
         self.image_navigation = NavigationControls(
-            title="<b>Image Controls:</b> [b/n]",
+            title="<b>Select Image:</b> [b/n]",
             label="Image",
             select_callback=self.select_image,
             prev_callback=self.controller.prev_image,
@@ -69,25 +74,36 @@ class WorkflowView(QWidget):
                 self.image_navigation,
                 self.step_buttons,
                 self.step_controls,
-                self.subject_navigation,
                 self.project_actions_section,
             ]
         )
-        self.subject_controls.hide()
 
-        layout = self._stack_widgets(
+        all_widgets = self._stack_widgets(
             [
                 self.header_section,
                 self.project_buttons,
+                self.subject_navigation,
                 self.subject_controls,
             ]
         )
-        self.setLayout(layout.layout())
+        all_widgets.layout().addStretch()
 
-        self.setMinimumWidth(400)
+        scroll_area = QScrollArea(self)
+        scroll_area.setWidget(all_widgets)
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+        self.setLayout(QVBoxLayout())
+        self.layout().setContentsMargins(0, 0, 0, 0)
+        self.layout().addWidget(scroll_area)
+
+        self.subject_controls.hide()
+
+        # self.setMinimumWidth(400)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
     def _stack_widgets(self, widgets) -> QWidget:
-        widget = QWidget()
+        widget = QWidget(self)
         widget.setLayout(QVBoxLayout())
         widget.layout().setContentsMargins(0, 0, 0, 0)
         for section in widgets:
@@ -106,7 +122,7 @@ class WorkflowView(QWidget):
         self._prev_path = str(Path(path).parent)
 
         available_atlases = list(get_all_atlases_lastversions().keys())
-        atlas = request_values(
+        user_values = request_values(
             title="New Brainways Project",
             atlas=dict(
                 value="whs_sd_rat_39um",
@@ -115,7 +131,11 @@ class WorkflowView(QWidget):
                 annotation=str,
                 label="Importer Type",
             ),
-        )["atlas"]
+        )
+        if user_values is None:
+            return
+
+        atlas = user_values["atlas"]
 
         settings = ProjectSettings(atlas=atlas, channel=0)
         project = BrainwaysProject.create(path=path, settings=settings, lazy_init=True)
@@ -254,6 +274,8 @@ class WorkflowView(QWidget):
                 ),
             ),
         )
+        if values is None:
+            return
 
         self.controller.create_excel_async(
             Path(path),
@@ -277,7 +299,7 @@ class WorkflowView(QWidget):
             return
         self._prev_path = str(Path(path))
 
-        importer_type = request_values(
+        values = request_values(
             title="Import Cell Detections",
             importer_type=dict(
                 value="keren",
@@ -286,14 +308,18 @@ class WorkflowView(QWidget):
                 annotation=str,
                 label="Importer Type",
             ),
-        )["importer_type"]
+        )
+        if values is None:
+            return
 
-        Importer = get_cell_detection_importer(importer_type)
+        Importer = get_cell_detection_importer(values["importer_type"])
         importer_params = {}
         if Importer.parameters:
             importer_params = request_values(
                 title="Import Cell Detections Parameters", values=Importer.parameters
             )
+            if importer_params is None:
+                return
 
         self.controller.import_cell_detections_async(
             path=Path(path), importer=Importer(**importer_params)
@@ -315,6 +341,7 @@ class WorkflowView(QWidget):
 
     def show_progress_bar(self, max_value: int = 0, label: str = ""):
         self.setEnabled(False)
+        self.progress_bar.value = 0
         self.progress_bar.text = label
         self.progress_bar.max = max_value
         self.header_section.show_progress()
@@ -328,7 +355,7 @@ class TitledGroupBox(QWidget):
     def __init__(
         self,
         title: Union[str, QLabel],
-        widgets: List[Union[QWidget, Widget]],
+        widgets: List[QWidget],
         layout: str = "vertical",
         visible: bool = True,
     ):
@@ -340,9 +367,6 @@ class TitledGroupBox(QWidget):
             groupbox.setLayout(QHBoxLayout())
 
         for widget in widgets:
-            if isinstance(widget, Widget):
-                widget = widget.native
-            groupbox.layout().addWidget(widget)
             groupbox.layout().addWidget(widget)
 
         self.setLayout(QVBoxLayout())
@@ -367,9 +391,9 @@ class ProjectButtons(TitledGroupBox):
         edit_project: Callable,
         new_project: Callable,
     ):
-        self.open_project = PushButton(text="Open")
-        self.edit_project = PushButton(text="Edit")
-        self.new_project = PushButton(text="New")
+        self.open_project = QPushButton("Open")
+        self.edit_project = QPushButton("Edit")
+        self.new_project = QPushButton("New")
 
         self.open_project.clicked.connect(open_project)
         self.edit_project.clicked.connect(edit_project)
@@ -396,8 +420,8 @@ class ProjectActionsSection(TitledGroupBox):
         export_excel: Callable,
         import_cells: Callable,
     ):
-        self.export_excel = PushButton(text="Create Results Excel")
-        self.import_cells = PushButton(text="Import Cell Detections")
+        self.export_excel = QPushButton("Create Results Excel")
+        self.import_cells = QPushButton("Import Cell Detections")
 
         self.export_excel.clicked.connect(export_excel)
         self.import_cells.clicked.connect(import_cells)
@@ -428,30 +452,27 @@ class NavigationControls(TitledGroupBox):
                 "max": 1,
             },
         )
-        self.selector_max_label = Label(value="")
-        self.prev_button = PushButton(text="< Previous")
-        self.next_button = PushButton(text="Next >")
+        self.selector_max_label = QLabel("")
+        self.prev_button = QPushButton("< Previous")
+        self.next_button = QPushButton("Next >")
 
         self.prev_button.clicked.connect(prev_callback)
         self.next_button.clicked.connect(next_callback)
 
         super().__init__(title=title, widgets=self._build_layout(), visible=visible)
 
-    def _build_layout(self) -> List[Widget]:
+    def _build_layout(self) -> List[QWidget]:
         self.selector_widget.native.layout().setContentsMargins(0, 0, 0, 0)
-        selector = Container(
-            widgets=[self.selector_widget, self.selector_max_label],
-            layout="horizontal",
-            labels=False,
-        )
-        buttons = Container(
-            widgets=[self.prev_button, self.next_button],
-            layout="horizontal",
-            labels=False,
-        )
 
-        selector.margins = (0, 0, 0, 0)
-        buttons.margins = (0, 0, 0, 0)
+        selector = QWidget()
+        selector.setLayout(QHBoxLayout())
+        selector.layout().addWidget(self.selector_widget.native)
+        selector.layout().addWidget(self.selector_max_label)
+
+        buttons = QWidget()
+        buttons.setLayout(QHBoxLayout())
+        buttons.layout().addWidget(self.prev_button)
+        buttons.layout().addWidget(self.next_button)
 
         return [selector, buttons]
 
@@ -492,11 +513,11 @@ class SubjectControls(NavigationControls):
         add_subject_callback: Callable,
         visible: bool = True,
     ):
-        self.add_subject_button = PushButton(text="Add Subject")
+        self.add_subject_button = QPushButton("Add Subject")
         self.add_subject_button.clicked.connect(add_subject_callback)
 
         super().__init__(
-            title="<b>Subject Controls:</b> [B/N]",
+            title="<b>Select Subject:</b> [B/N]",
             label="Subject",
             select_callback=select_callback,
             prev_callback=prev_callback,
@@ -504,7 +525,7 @@ class SubjectControls(NavigationControls):
             visible=visible,
         )
 
-    def _build_layout(self) -> List[Widget]:
+    def _build_layout(self) -> List[QWidget]:
         widgets = super()._build_layout()
         widgets.append(self.add_subject_button)
         return widgets
@@ -514,17 +535,17 @@ class StepButtons(TitledGroupBox):
     def __init__(self, steps: List[Controller], clicked: Callable, title: str):
         self.buttons = []
         for i, step in enumerate(steps):
-            button = PushButton(text=step.name)
+            button = QPushButton(step.name)
             button.clicked.connect(functools.partial(clicked, step_index=i))
             button.clicked.connect(functools.partial(self.set_step, step_index=i))
-            button.native.setCheckable(True)
+            button.setCheckable(True)
             self.buttons.append(button)
 
         super().__init__(title=title, widgets=self.buttons)
 
     def set_step(self, step_index: int):
         for i, button in enumerate(self.buttons):
-            button.native.setChecked(i == step_index)
+            button.setChecked(i == step_index)
 
 
 class StepControls(TitledGroupBox):
@@ -538,9 +559,12 @@ class StepControls(TitledGroupBox):
         super().__init__(title=self.title, widgets=self.widgets)
 
     def set_step(self, step_index: int):
-        current_step = self.steps[step_index]
-        self.setVisible(current_step.widget is not None)
-        self.title.setText(f"<b>{current_step.name} Parameters:</b>")
+        for i, widget in enumerate(self.widgets):
+            if widget is not None:
+                widget.setVisible(i == step_index)
+
+        self.setVisible(self.steps[step_index].widget is not None)
+        self.title.setText(f"<b>{self.steps[step_index].name} Parameters:</b>")
 
 
 class ProgressBar(QWidget):

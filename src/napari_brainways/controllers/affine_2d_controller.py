@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import functools
 from dataclasses import replace
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Callable, Optional
 
 import numpy as np
 from brainways.pipeline.brainways_params import BrainwaysParams
@@ -25,7 +24,6 @@ class Affine2DController(Controller):
         self.input_layer = None
         self.atlas_slice_layer = None
         self.widget = Affine2DWidget(self)
-        self.widget.hide()
         self._key_bindings = None
 
     @property
@@ -35,59 +33,59 @@ class Affine2DController(Controller):
     def register_key_bindings(self):
         key_bindings = {
             "Left": (
-                functools.partial(self.keybind_modify_params, tx=-1),
+                self.keybind_modify_params(tx=-1),
                 "Move Left",
             ),
             "Right": (
-                functools.partial(self.keybind_modify_params, tx=1),
+                self.keybind_modify_params(tx=1),
                 "Move Right",
             ),
             "Up": (
-                functools.partial(self.keybind_modify_params, ty=-1),
+                self.keybind_modify_params(ty=-1),
                 "Move Up",
             ),
             "Down": (
-                functools.partial(self.keybind_modify_params, ty=1),
+                self.keybind_modify_params(ty=1),
                 "Move Down",
             ),
             "Shift-Left": (
-                functools.partial(self.keybind_modify_params, tx=-10),
+                self.keybind_modify_params(tx=-10),
                 "Move Left x10",
             ),
             "Shift-Right": (
-                functools.partial(self.keybind_modify_params, tx=10),
+                self.keybind_modify_params(tx=10),
                 "Move Right x10",
             ),
             "Shift-Up": (
-                functools.partial(self.keybind_modify_params, ty=-10),
+                self.keybind_modify_params(ty=-10),
                 "Move Up x10",
             ),
             "Shift-Down": (
-                functools.partial(self.keybind_modify_params, ty=10),
+                self.keybind_modify_params(ty=10),
                 "Move Down x10",
             ),
             "Control-Left": (
-                functools.partial(self.keybind_modify_params, angle=-1),
+                self.keybind_modify_params(angle=-1),
                 "Rotate Left",
             ),
             "Control-Right": (
-                functools.partial(self.keybind_modify_params, angle=1),
+                self.keybind_modify_params(angle=1),
                 "Rotate Right",
             ),
             "Alt-Left": (
-                functools.partial(self.keybind_modify_params, sx=-0.01),
+                self.keybind_modify_params(sx=-0.01),
                 "Decrease Horizontal Scale",
             ),
             "Alt-Right": (
-                functools.partial(self.keybind_modify_params, sx=0.01),
+                self.keybind_modify_params(sx=0.01),
                 "Increase Horizontal Scale",
             ),
             "Alt-Up": (
-                functools.partial(self.keybind_modify_params, sy=0.01),
+                self.keybind_modify_params(sy=0.01),
                 "Increase Horizontal Scale",
             ),
             "Alt-Down": (
-                functools.partial(self.keybind_modify_params, sy=-0.01),
+                self.keybind_modify_params(sy=-0.01),
                 "Decrease Horizontal Scale",
             ),
             "?": (self.show_help, "Show Help"),
@@ -176,7 +174,6 @@ class Affine2DController(Controller):
         if self._is_open:
             return
 
-        self.widget.show()
         self.input_layer = self.ui.viewer.add_image(
             np.zeros((512, 512), np.uint8), name="Input"
         )
@@ -193,7 +190,6 @@ class Affine2DController(Controller):
         if not self._is_open:
             return
 
-        self.widget.hide()
         self.unregister_key_bindings()
         self.ui.viewer.layers.remove(self.input_layer)
         self.ui.viewer.layers.remove(self.atlas_slice_layer)
@@ -208,27 +204,29 @@ class Affine2DController(Controller):
 
     def keybind_modify_params(
         self,
-        _,
         angle: Optional[float] = None,
         tx: Optional[float] = None,
         ty: Optional[float] = None,
         sx: Optional[float] = None,
         sy: Optional[float] = None,
-    ):
-        kwargs = {}
-        if angle is not None:
-            kwargs["angle"] = self._params.affine.angle + angle
-        if tx is not None:
-            kwargs["tx"] = self._params.affine.tx + tx
-        if ty is not None:
-            kwargs["ty"] = self._params.affine.ty + ty
-        if sx is not None:
-            kwargs["sx"] = self._params.affine.sx + sx
-        if sy is not None:
-            kwargs["sy"] = self._params.affine.sy + sy
-        affine_params = replace(self._params.affine, **kwargs)
-        params = replace(self._params, affine=affine_params)
-        self.show(params)
+    ) -> Callable:
+        def _func(_):
+            kwargs = {}
+            if angle is not None:
+                kwargs["angle"] = self._params.affine.angle + angle
+            if tx is not None:
+                kwargs["tx"] = self._params.affine.tx + tx
+            if ty is not None:
+                kwargs["ty"] = self._params.affine.ty + ty
+            if sx is not None:
+                kwargs["sx"] = self._params.affine.sx + sx
+            if sy is not None:
+                kwargs["sy"] = self._params.affine.sy + sy
+            affine_params = replace(self._params.affine, **kwargs)
+            params = replace(self._params, affine=affine_params)
+            self.show(params)
+
+        return _func
 
     def on_params_changed(
         self,

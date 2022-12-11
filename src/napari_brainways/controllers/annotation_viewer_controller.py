@@ -48,7 +48,9 @@ class AnnotationViewerController(Controller):
     def on_mouse_move(self, _layer, event):
         struct_id = self.annotations_layer.get_value(event.position, world=True)
         if struct_id:
-            struct_name = self.pipeline.atlas.atlas.structures[struct_id]["name"]
+            struct_name = self.pipeline.atlas.brainglobe_atlas.structures[struct_id][
+                "name"
+            ]
         else:
             struct_name = ""
         _layer.help = struct_name

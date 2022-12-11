@@ -30,7 +30,6 @@ class TpsController(Controller):
         self.points_atlas_layer: napari.layers.Points | None = None
         self.widget = TpsWidget(self)
         self._key_bindings = None
-        self.widget.hide()
         self._prev_params: List[BrainwaysParams] | None = None
         self._next_params: List[BrainwaysParams] | None = None
 
@@ -155,7 +154,6 @@ class TpsController(Controller):
         self._prev_params = []
         self._next_params = []
 
-        self.widget.show()
         self.register_key_bindings()
         self._is_open = True
 
@@ -176,7 +174,6 @@ class TpsController(Controller):
         self.points_atlas_layer = None
         self._prev_params = None
         self._next_params = None
-        self.widget.hide()
         self.unregister_key_bindings()
         self._is_open = False
 

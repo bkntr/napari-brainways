@@ -81,7 +81,7 @@ class CreateSubjectDialog(QDialog):
             self.subject = project.subjects[subject_index]
             self.create_subject_button.setText("Done")
             self.add_document_rows_async(
-                documents=self.subject.documents, document_index=document_index
+                documents=self.subject.documents, select_document_index=document_index
             )
         else:
             self.setWindowTitle("New Subject")
@@ -165,7 +165,7 @@ class CreateSubjectDialog(QDialog):
         return thumbnail
 
     def add_document_rows_async(
-        self, documents: List[SliceInfo], document_index: int
+        self, documents: List[SliceInfo], select_document_index: Optional[int] = None
     ) -> FunctionWorker:
         progress = QProgressDialog(
             "Opening images...", "Cancel", 0, len(documents), self
@@ -177,7 +177,8 @@ class CreateSubjectDialog(QDialog):
 
         def on_work_returned():
             self.channels_combobox.setCurrentIndex(self.subject.settings.channel)
-            self.files_table.selectRow(document_index)
+            if select_document_index is not None:
+                self.files_table.selectRow(select_document_index)
             progress.close()
 
         def on_work_yielded(result: Tuple[SliceInfo, np.ndarray]):
