@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import functools
 import os
 from pathlib import Path
@@ -351,7 +353,7 @@ class TitledGroupBox(QWidget):
     def __init__(
         self,
         title: Union[str, QLabel],
-        widgets: List[QWidget],
+        widgets: List[QWidget | None],
         layout: str = "vertical",
         visible: bool = True,
     ):
@@ -363,7 +365,8 @@ class TitledGroupBox(QWidget):
             groupbox.setLayout(QHBoxLayout())
 
         for widget in widgets:
-            groupbox.layout().addWidget(widget)
+            if widget is not None:
+                groupbox.layout().addWidget(widget)
 
         self.setLayout(QVBoxLayout())
         self.layout().addWidget(QLabel(title) if isinstance(title, str) else title)
@@ -563,10 +566,7 @@ class StepControls(TitledGroupBox):
     def __init__(self, steps: List[Controller]):
         self.steps = steps
         self.title = QLabel("")
-        font = self.title.font()
-        font.setPointSize(11)
-        self.title.setFont(font)
-        self.widgets = [step.widget for step in steps if step.widget is not None]
+        self.widgets = [step.widget for step in steps]
         super().__init__(title=self.title, widgets=self.widgets)
 
     def set_step(self, step_index: int):
