@@ -139,26 +139,26 @@ class WorkflowView(QWidget):
 
         settings = ProjectSettings(atlas=atlas, channel=0)
         project = BrainwaysProject.create(path=path, settings=settings, lazy_init=True)
-        dialog = CreateSubjectDialog(project=project, parent=self)
-        result = dialog.exec()
-        if result == QDialog.DialogCode.Rejected:
-            return
-        self.controller.open_project_async(path)
+        self.controller.open_project_async(project.path)
 
     def on_add_subject_clicked(self, _=None):
-        path = QFileDialog.getExistingDirectory(
-            self,
-            "Create Brainways Project",
-            str(self._prev_path),
+        values = request_values(
+            subject_id=dict(annotation=str, label="Subject ID:"),
+            title="New Subject",
         )
-        if path == "":
+        if values is None or values["subject_id"] == "":
             return
-        self._prev_path = str(Path(path))
-        dialog = CreateSubjectDialog(project=self.controller.project, parent=self)
+
+        subject_id = values["subject_id"]
+        dialog = CreateSubjectDialog(
+            project=self.controller.project, new_subject_id=subject_id, parent=self
+        )
         result = dialog.exec()
         if result == QDialog.DialogCode.Rejected:
             return
-        self.controller.open_subject_async(dialog.subject.subject_path)
+        subject_index = self.controller.project.subjects.index(dialog.subject)
+        self.on_project_changed(n_subjects=len(self.controller.project))
+        self.controller.set_subject_index_async(subject_index)
 
     def on_edit_subject_clicked(self, _=None):
         dialog = CreateSubjectDialog(
@@ -192,13 +192,9 @@ class WorkflowView(QWidget):
         self.controller.open_project_async(Path(path))
 
     def on_project_changed(self, n_subjects: int):
-        if n_subjects == 0:
-            self.subject_navigation.visible = False
-        else:
-            self.project_buttons.project_opened()
-            self.subject_navigation.max = n_subjects
-            self.subject_navigation.visible = True
-            self.set_step(0)
+        self.project_buttons.project_opened()
+        self.subject_navigation.project_opened(n_subjects)
+        self.set_step(0)
 
     def on_subject_changed(self):
         self.image_navigation.max = self.controller.subject_size
@@ -408,10 +404,10 @@ class ProjectButtons(TitledGroupBox):
         self.project_closed()
 
     def project_opened(self):
-        self.edit_project.visible = True
+        self.edit_project.setVisible(True)
 
     def project_closed(self):
-        self.edit_project.visible = False
+        self.edit_project.setVisible(False)
 
 
 class ProjectActionsSection(TitledGroupBox):
@@ -529,6 +525,21 @@ class SubjectControls(NavigationControls):
         widgets = super()._build_layout()
         widgets.append(self.add_subject_button)
         return widgets
+
+    def project_opened(self, n_subjects: int):
+        self.visible = True
+        if n_subjects == 0:
+            navigation_visible = False
+        else:
+            self.max = n_subjects
+            navigation_visible = True
+
+        self.selector_widget.visible = navigation_visible
+        self.next_button.setVisible(navigation_visible)
+        self.prev_button.setVisible(navigation_visible)
+
+    def project_closed(self, n_subjects: int):
+        self.visible = False
 
 
 class StepButtons(TitledGroupBox):

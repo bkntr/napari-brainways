@@ -23,6 +23,7 @@ class Affine2DController(Controller):
         self._params: BrainwaysParams | None = None
         self.input_layer = None
         self.atlas_slice_layer = None
+        self.display_scale: float = 1.0
         self.widget = Affine2DWidget(self)
         self._key_bindings = None
 
@@ -125,12 +126,15 @@ class Affine2DController(Controller):
         from_ui: bool = False,
     ):
         self._params = params
-        display_scale = 1 / min(params.affine.sx, params.affine.sy)
         if image is not None:
             self._image = image
             self._atlas_slice = self.pipeline.get_atlas_slice(params).annotation.numpy()
+            self.display_scale = min(
+                self._image.shape[0] / self._atlas_slice.shape[0],
+                self._image.shape[1] / self._atlas_slice.shape[1],
+            )
             self.atlas_slice_layer.data = self._atlas_slice
-            self.atlas_slice_layer.scale = (display_scale, display_scale)
+            self.atlas_slice_layer.scale = (self.display_scale, self.display_scale)
             self.widget.set_ranges(
                 tx=(-image.shape[1], image.shape[1]),
                 ty=(-image.shape[0], image.shape[0]),
@@ -152,7 +156,7 @@ class Affine2DController(Controller):
             image=self._image,
             params=params,
             until_step=PipelineStep.AFFINE_2D,
-            scale=display_scale,
+            scale=self.display_scale,
         )
 
         self.input_layer.data = registered_image
@@ -199,6 +203,7 @@ class Affine2DController(Controller):
 
         self._image = None
         self._atlas_slice = None
+        self.display_scale = 1.0
         self._params = None
         self._is_open = False
 

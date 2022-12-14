@@ -25,7 +25,7 @@ class Cell3DViewerController(Controller):
         self._params: BrainwaysParams | None = None
         self._atlas: BrainwaysAtlas | None = None
         # TODO: ability to switch between modes
-        self._3d_view_mode = False
+        self._3d_view_mode = True
 
     def open(self) -> None:
         self._atlas = self.ui.project.atlas

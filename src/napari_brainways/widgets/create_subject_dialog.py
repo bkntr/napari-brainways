@@ -33,7 +33,7 @@ class CreateSubjectDialog(QDialog):
     def __init__(
         self,
         project: BrainwaysProject,
-        subject_id: Optional[str] = None,
+        new_subject_id: Optional[str] = None,
         subject_index: Optional[int] = None,
         document_index: Optional[int] = None,
         parent: Optional[QWidget] = None,
@@ -84,8 +84,9 @@ class CreateSubjectDialog(QDialog):
                 documents=self.subject.documents, select_document_index=document_index
             )
         else:
-            self.setWindowTitle("New Subject")
-            self.subject = project.add_subject(id=subject_id)
+            assert new_subject_id is not None
+            self.setWindowTitle(f"New Subject ({new_subject_id})")
+            self.subject = project.add_subject(id=new_subject_id)
 
     def create_table(self) -> QTableWidget:
         table = QTableWidget(0, 4)
