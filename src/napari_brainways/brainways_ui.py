@@ -23,6 +23,7 @@ from napari_brainways.controllers.annotation_viewer_controller import (
 from napari_brainways.controllers.cell_3d_viewer_controller import (
     Cell3DViewerController,
 )
+from napari_brainways.controllers.cell_detector_controller import CellDetectorController
 from napari_brainways.controllers.registration_controller import RegistrationController
 from napari_brainways.controllers.tps_controller import TpsController
 from napari_brainways.widgets.workflow_widget import WorkflowView
@@ -38,6 +39,7 @@ class BrainwaysUI(QWidget):
         self.affine_2d_controller = Affine2DController(self)
         self.tps_controller = TpsController(self)
         self.annotation_viewer_controller = AnnotationViewerController(self)
+        self.cell_detector_controller = CellDetectorController(self)
         self.cell_viewer_controller = Cell3DViewerController(self)
 
         self.steps = [
@@ -45,6 +47,7 @@ class BrainwaysUI(QWidget):
             self.affine_2d_controller,
             self.tps_controller,
             self.annotation_viewer_controller,
+            self.cell_detector_controller,
             self.cell_viewer_controller,
         ]
 
@@ -378,6 +381,13 @@ class BrainwaysUI(QWidget):
             importer=importer,
             cell_detections_root=path,
             progress_label="Importing Cell Detections...",
+            progress_max_value=self.project.n_valid_images,
+        )
+
+    def run_cell_detector_async(self) -> FunctionWorker:
+        return self.do_work_async(
+            self.project.run_cell_detector_iter,
+            progress_label="Running Cell Detector...",
             progress_max_value=self.project.n_valid_images,
         )
 

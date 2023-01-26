@@ -153,7 +153,7 @@ class RegistrationController(Controller):
         params: BrainwaysParams,
         image: np.ndarray | None = None,
         from_ui: bool = False,
-    ):
+    ) -> None:
         self._params = params
 
         if image is not None:

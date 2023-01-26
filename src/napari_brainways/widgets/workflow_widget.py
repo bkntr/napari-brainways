@@ -50,6 +50,7 @@ class WorkflowView(QWidget):
         self.project_actions_section = ProjectActionsSection(
             export_excel=self.on_export_clicked,
             import_cells=self.on_import_cells_clicked,
+            run_cell_detector=self.on_run_cell_detector_clicked,
         )
         self.subject_navigation = SubjectControls(
             select_callback=self.select_subject,
@@ -80,7 +81,7 @@ class WorkflowView(QWidget):
             ]
         )
 
-        all_widgets = self._stack_widgets(
+        self.all_widgets = self._stack_widgets(
             [
                 self.header_section,
                 self.project_buttons,
@@ -88,10 +89,10 @@ class WorkflowView(QWidget):
                 self.subject_controls,
             ]
         )
-        all_widgets.layout().addStretch()
+        self.all_widgets.layout().addStretch()
 
         scroll_area = QScrollArea(self)
-        scroll_area.setWidget(all_widgets)
+        scroll_area.setWidget(self.all_widgets)
         scroll_area.setWidgetResizable(True)
         scroll_area.setAlignment(Qt.AlignmentFlag.AlignTop)
 
@@ -323,6 +324,9 @@ class WorkflowView(QWidget):
             path=Path(path), importer=Importer(**importer_params)
         )
 
+    def on_run_cell_detector_clicked(self, _=None):
+        self.controller.run_cell_detector_async()
+
     def set_subject_index(self, subject_index: int):
         self.subject_navigation.value = subject_index
 
@@ -338,14 +342,14 @@ class WorkflowView(QWidget):
             self.progress_bar.value += 1
 
     def show_progress_bar(self, max_value: int = 0, label: str = ""):
-        self.setEnabled(False)
+        self.all_widgets.setEnabled(False)
         self.progress_bar.value = 0
         self.progress_bar.text = label
         self.progress_bar.max = max_value
         self.header_section.show_progress()
 
     def hide_progress_bar(self):
-        self.setEnabled(True)
+        self.all_widgets.setEnabled(True)
         self.header_section.hide_progress()
 
 
@@ -418,16 +422,19 @@ class ProjectActionsSection(TitledGroupBox):
         self,
         export_excel: Callable,
         import_cells: Callable,
+        run_cell_detector: Callable,
     ):
         self.export_excel = QPushButton("Create Results Excel")
         self.import_cells = QPushButton("Import Cell Detections")
+        self.run_cell_detector = QPushButton("Run Cell Detector")
 
         self.export_excel.clicked.connect(export_excel)
         self.import_cells.clicked.connect(import_cells)
+        self.run_cell_detector.clicked.connect(run_cell_detector)
 
         super().__init__(
             title="<b>Project Actions:</b>",
-            widgets=[self.export_excel, self.import_cells],
+            widgets=[self.export_excel, self.run_cell_detector, self.import_cells],
         )
 
 

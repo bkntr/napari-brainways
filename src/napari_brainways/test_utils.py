@@ -39,5 +39,5 @@ def randomly_modified_params(params: BrainwaysParams):
 
 def worker_join(worker: FunctionWorker | None, qtbot: QtBot):
     if worker is not None:
-        with qtbot.waitSignal(worker.finished, timeout=60000) as blocker:
+        with qtbot.waitSignal(worker.finished, timeout=10000) as blocker:
             blocker.connect(worker.errored)
