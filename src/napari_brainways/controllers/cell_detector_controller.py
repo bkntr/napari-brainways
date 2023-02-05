@@ -271,7 +271,12 @@ class CellDetectorController(Controller):
         h = int(round(h * self.ui.current_document.image_size[0]))
         highres_crop = (
             self.ui.current_document.image_reader()
-            .get_image_dask_data("YX", X=slice(x, x + w), Y=slice(y, y + h))
+            .get_image_dask_data(
+                "YX",
+                X=slice(x, x + w),
+                Y=slice(y, y + h),
+                C=self.ui.project.settings.channel,
+            )
             .compute()
         )
         self.crop_layer.data = highres_crop
