@@ -272,6 +272,22 @@ class WorkflowView(QWidget):
                     tooltip="Normalize number of cells to number of cells per area unit"
                 ),
             ),
+            min_cell_size_um=dict(
+                value=0,
+                annotation=int,
+                label="Min Cell Area (μm)",
+                options=dict(
+                    tooltip="Filter out detected cells with area smaller than this value"
+                ),
+            ),
+            max_cell_size_um=dict(
+                value=0,
+                annotation=int,
+                label="Max Cell Area (μm)",
+                options=dict(
+                    tooltip="Filter out detected cells with area larger than this value"
+                ),
+            ),
         )
         if values is None:
             return
@@ -280,6 +296,8 @@ class WorkflowView(QWidget):
             Path(path),
             min_region_area_um2=values["min_region_area_um2"],
             cells_per_area_um2=values["cells_per_area_um2"],
+            min_cell_size_um=values["min_cell_size_um"],
+            max_cell_size_um=values["max_cell_size_um"],
             excel_mode=values["excel_mode"],
         )
 

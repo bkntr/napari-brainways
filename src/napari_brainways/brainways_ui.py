@@ -229,6 +229,8 @@ class BrainwaysUI(QWidget):
         path: Path,
         min_region_area_um2: Optional[int] = None,
         cells_per_area_um2: Optional[int] = None,
+        min_cell_size_um: Optional[float] = None,
+        max_cell_size_um: Optional[float] = None,
         excel_mode: ExcelMode = ExcelMode.ROW_PER_SUBJECT,
     ) -> FunctionWorker:
         return self.do_work_async(
@@ -236,6 +238,8 @@ class BrainwaysUI(QWidget):
             path=path,
             min_region_area_um2=min_region_area_um2,
             cells_per_area_um2=cells_per_area_um2,
+            min_cell_size_um=min_cell_size_um,
+            max_cell_size_um=max_cell_size_um,
             excel_mode=excel_mode,
             progress_label="Creating Results Excel...",
             progress_max_value=len(self.project.subjects),

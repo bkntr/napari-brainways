@@ -38,6 +38,9 @@ class AnnotationViewerController(Controller):
         return True
 
     def open(self) -> None:
+        if self._is_open:
+            return
+
         self.input_layer = self.ui.viewer.add_image(np.zeros((10, 10)), name="Image")
         self.annotations_layer = self.ui.viewer.add_labels(
             np.zeros((10, 10), np.int32), name="Annotations"
