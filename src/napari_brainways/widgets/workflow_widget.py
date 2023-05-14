@@ -259,7 +259,7 @@ class WorkflowView(QWidget):
             min_region_area_um2=dict(
                 value=250,
                 annotation=int,
-                label="Min Structure Area (μm²)",
+                label="Min Structure Square Area (μm)",
                 options=dict(
                     tooltip="Filter out structures with an area smaller than this value"
                 ),
@@ -267,7 +267,7 @@ class WorkflowView(QWidget):
             cells_per_area_um2=dict(
                 value=250,
                 annotation=int,
-                label="Cells Per Area (μm²)",
+                label="Cells Per Square Area (μm)",
                 options=dict(
                     tooltip="Normalize number of cells to number of cells per area unit"
                 ),
