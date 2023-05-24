@@ -1,7 +1,7 @@
 from typing import Callable, Dict, Tuple
 
 from magicgui import magicgui
-from qtpy import QtCore
+from qtpy import QtCore, QtGui
 from qtpy.QtWidgets import QMessageBox, QPushButton, QStyle, QVBoxLayout, QWidget
 
 
@@ -46,17 +46,7 @@ class RegistrationView(QWidget):
             widget.installEventFilter(self)
 
         self.run_model_button = QPushButton("Automatic Registration")
-        if self.controller.model_available():
-            self.run_model_button.clicked.connect(
-                self.controller.on_run_model_button_click
-            )
-        else:
-            self.run_model_button.setIcon(
-                self.style().standardIcon(QStyle.SP_MessageBoxWarning)
-            )
-            self.run_model_button.setToolTip(
-                "Automatic registration model is not installed"
-            )
+        self.run_model_button.clicked.connect(self.controller.on_run_model_button_click)
 
         self.setLayout(QVBoxLayout())
         self.layout().addWidget(self.registration_params_widget.native)
@@ -127,3 +117,16 @@ class RegistrationView(QWidget):
     def ap_limits(self, value: Tuple[int, int]):
         self.registration_params_widget.ap.min = value[0]
         self.registration_params_widget.ap.max = value[1]
+
+    def update_model(self, ap_min: int, ap_max: int):
+        self.ap_limits = (ap_min, ap_max)
+        if self.controller.model_available():
+            self.run_model_button.setIcon(QtGui.QIcon())
+            self.run_model_button.setToolTip("")
+        else:
+            self.run_model_button.setIcon(
+                self.style().standardIcon(QStyle.SP_MessageBoxWarning)
+            )
+            self.run_model_button.setToolTip(
+                "Automatic registration model is not installed"
+            )

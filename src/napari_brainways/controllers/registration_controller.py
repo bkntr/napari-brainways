@@ -112,7 +112,7 @@ class RegistrationController(Controller):
         return params.atlas is not None
 
     def pipeline_loaded(self):
-        self.widget.ap_limits = (0, self.pipeline.atlas.shape[0] - 1)
+        self.widget.update_model(ap_min=0, ap_max=self.pipeline.atlas.shape[0] - 1)
 
     def default_params(
         self, image: np.ndarray, params: BrainwaysParams
@@ -122,9 +122,7 @@ class RegistrationController(Controller):
         else:
             return replace(
                 params,
-                atlas=AtlasRegistrationParams(
-                    ap=self.ui.current_subject.atlas.shape[0] // 2
-                ),
+                atlas=AtlasRegistrationParams(ap=self.pipeline.atlas.shape[0] // 2),
             )
 
     def run_model(self, image: np.ndarray, params: BrainwaysParams) -> BrainwaysParams:
@@ -142,11 +140,16 @@ class RegistrationController(Controller):
         return replace(params, atlas=atlas_params)
 
     def on_run_model_button_click(self):
-        params = self.run_model(image=self._image, params=self._params)
-        self.show(params)
+        if self.model_available():
+            params = self.run_model(image=self._image, params=self._params)
+            self.show(params)
 
     def model_available(self) -> bool:
-        return BRAINWAYS_REG_MODEL_AVAILABLE
+        model_supports_atlas = (
+            self.ui.current_subject.atlas.brainglobe_atlas.atlas_name
+            == "whs_sd_rat_39um"
+        )
+        return BRAINWAYS_REG_MODEL_AVAILABLE and model_supports_atlas
 
     def show(
         self,

@@ -26,7 +26,7 @@ class CellDetectorController(Controller):
         self.widget.hide()
 
         self.input_layer = None
-        self.points_layer: napari.layers.Points | None = None
+        self.preview_box_layer: napari.layers.Points | None = None
         self.crop_layer: napari.layers.Image | None = None
         self.cell_mask_layer: napari.layers.Image | None = None
         self._run_lock = False
@@ -79,14 +79,14 @@ class CellDetectorController(Controller):
         params_widget.flow_threshold.value = params.cell.flow_threshold
         params_widget.mask_threshold.value = params.cell.mask_threshold
 
-        # TODO: convert points layer to shapes layer
-        x = (
-            params.cell.preview_bb[0] + (params.cell.preview_bb[2] / 2)
-        ) * self.input_layer.data.shape[1]
-        y = (
-            params.cell.preview_bb[1] + (params.cell.preview_bb[3] / 2)
-        ) * self.input_layer.data.shape[0]
-        self.points_layer.data = np.array([y, x])
+        x0 = params.cell.preview_bb[0]
+        y0 = params.cell.preview_bb[1]
+        x1 = params.cell.preview_bb[0] + params.cell.preview_bb[2]
+        y1 = params.cell.preview_bb[1] + params.cell.preview_bb[3]
+        self.preview_box_layer.data = (
+            np.array([[y0, x0], [y0, x1], [y1, x1], [y1, x0]])
+            * self.input_layer.data.shape
+        )
         self.on_click()
         self.set_preview_affine()
 
@@ -107,20 +107,12 @@ class CellDetectorController(Controller):
         )
         self.input_layer.translate = (0, 0)
 
-        self.points_layer = self.ui.viewer.add_points(
-            data=np.zeros((1, 2), dtype=np.float32),
+        self.preview_box_layer = self.ui.viewer.add_shapes(
             name="Region selector",
-            symbol="square",
             face_color="#ffffff00",
             edge_color="red",
-            size=26,
-            edge_width=1,
         )
-        self.points_layer.mode = "add"
-        self.points_layer.data = np.zeros((0, 2))
-        self.points_layer.edge_color = "red"
-        self.points_layer.symbol = "square"
-        self.points_layer.events.data.connect(self.on_click)
+        self.preview_box_layer.mouse_double_click_callbacks.append(self.on_click)
 
         self.crop_layer = self.ui.viewer.add_image(
             np.zeros((100, 100), np.uint8),
@@ -129,7 +121,7 @@ class CellDetectorController(Controller):
         self.cell_mask_layer = self.ui.viewer.add_labels(
             np.zeros((10, 10), np.uint8), name="Cells"
         )
-        self.ui.viewer.layers.selection.active = self.points_layer
+        self.ui.viewer.layers.selection.active = self.preview_box_layer
 
         self._is_open = True
 
@@ -139,7 +131,7 @@ class CellDetectorController(Controller):
 
         self.widget.hide()
         self.ui.viewer.layers.remove(self.input_layer)
-        self.ui.viewer.layers.remove(self.points_layer)
+        self.ui.viewer.layers.remove(self.preview_box_layer)
         self.ui.viewer.layers.remove(self.crop_layer)
         self.ui.viewer.layers.remove(self.cell_mask_layer)
 
@@ -147,7 +139,7 @@ class CellDetectorController(Controller):
         self._params = None
 
         self.input_layer = None
-        self.points_layer = None
+        self.preview_box_layer = None
         self.crop_layer = None
         self.cell_mask_layer = None
         self._image_reader = None
@@ -175,7 +167,7 @@ class CellDetectorController(Controller):
     def _on_cell_detector_returned(self, mask: np.ndarray):
         self.cell_mask_layer.data = mask
         self.cell_mask_layer.visible = True
-        self.ui.viewer.layers.selection = {self.points_layer}
+        self.ui.viewer.layers.selection = {self.preview_box_layer}
 
     def _on_cell_detector_started(self):
         self._run_lock = True
@@ -236,45 +228,56 @@ class CellDetectorController(Controller):
             image = self.input_layer.data
 
         if point is None:
-            point = self.points_layer.data[-1]
+            box = self.preview_box_layer.data[-1] / image.shape
+            x = box[0, 1]
+            y = box[0, 0]
+            w = box[1, 1] - box[0, 1]
+            h = box[2, 0] - box[0, 0]
+            return x, y, w, h
 
         image_height = image.shape[0]
         image_width = image.shape[1]
-        y, x = point
 
-        # w = 0.05
-        # h = image_width / image_height * 0.05
-        w = min(4096 / self.ui.current_document.image_size[1], 1.0)
-        h = min(4096 / self.ui.current_document.image_size[0], 1.0)
+        y = point[0] / image_height
+        x = point[1] / image_width
 
-        y = y / image_height - h / 2
-        x = x / image_width - w / 2
+        w = min(4096 / self.ui.current_document.image_size[1], 1)
+        h = min(4096 / self.ui.current_document.image_size[0], 1)
 
-        return x, y, w, h
+        x0 = min(max(x - w / 2, 0), 1 - w)
+        y0 = min(max(y - h / 2, 0), 1 - h)
 
-    def on_click(self, _=None):
+        return x0, y0, w, h
+
+    def on_click(self, layer=None, event=None):
         if self._run_lock:
-            with self.points_layer.events.data.blocker():
-                self.points_layer.selected_data = {self.points_layer.data.shape[0] - 1}
-                self.points_layer.remove_selected()
+            with self.preview_box_layer.events.data.blocker():
+                self.preview_box_layer.selected_data = {
+                    self.preview_box_layer.data.shape[0] - 1
+                }
+                self.preview_box_layer.remove_selected()
             return
 
-        if len(self.points_layer.data) > 1:
-            with self.points_layer.events.data.blocker():
-                self.points_layer.selected_data = {0}
-                self.points_layer.remove_selected()
+        if event is not None:
+            with self.preview_box_layer.events.data.blocker():
+                x, y, w, h = self.selected_bounding_box(point=event.position)
+                self.preview_box_layer.data = (
+                    np.array([[y, x], [y, x + w], [y + h, x + w], [y + h, x]])
+                    * self.input_layer.data.shape
+                )
 
         x, y, w, h = self.selected_bounding_box()
-        x = int(round(x * self.ui.current_document.image_size[1]))
-        y = int(round(y * self.ui.current_document.image_size[0]))
-        w = int(round(w * self.ui.current_document.image_size[1]))
-        h = int(round(h * self.ui.current_document.image_size[0]))
+        x0 = int(round(x * self.ui.current_document.image_size[1]))
+        y0 = int(round(y * self.ui.current_document.image_size[0]))
+        x1 = int(round((x + w) * self.ui.current_document.image_size[1]))
+        y1 = int(round((y + h) * self.ui.current_document.image_size[0]))
+
         highres_crop = (
             self.ui.current_document.image_reader()
             .get_image_dask_data(
                 "YX",
-                X=slice(x, x + w),
-                Y=slice(y, y + h),
+                X=slice(x0, x1),
+                Y=slice(y0, y1),
                 C=self.ui.current_subject.settings.channel,
             )
             .compute()
