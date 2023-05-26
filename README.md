@@ -21,6 +21,9 @@ and review the napari docs for plugin developers:
 https://napari.org/plugins/index.html
 -->
 
+## Preprint
+Check out our biorxiv preprint: https://www.biorxiv.org/content/10.1101/2023.05.25.542252v1
+
 ## Installation
 
 You can install `napari-brainways` via [pip]:
