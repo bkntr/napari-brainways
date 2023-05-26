@@ -197,8 +197,6 @@ class WorkflowView(QWidget):
     def on_project_changed(self, n_subjects: int):
         self.project_buttons.project_opened()
         self.subject_navigation.project_opened(n_subjects)
-        if n_subjects > 0:
-            self.step_buttons.update_enabled(self.controller.current_params)
         self.set_step(0)
 
     def on_subject_changed(self):

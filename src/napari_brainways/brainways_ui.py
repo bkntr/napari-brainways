@@ -210,6 +210,7 @@ class BrainwaysUI(QWidget):
             step.pipeline_loaded()
         self.current_step.open()
         self.current_step.show(self.current_params, self._image)
+        self.widget.update_enabled_steps()
         self.widget.hide_progress_bar()
 
     def _on_progress_returned(self):
