@@ -17,6 +17,7 @@ from brainways.pipeline.brainways_params import (
     BrainwaysParams,
     TPSTransformParams,
 )
+from brainways.project.brainways_project import BrainwaysProject
 from brainways.project.brainways_subject import BrainwaysSubject
 from brainways.project.info_classes import ProjectSettings, SliceInfo
 from brainways.utils.atlas.brainways_atlas import AtlasSlice, BrainwaysAtlas
@@ -267,6 +268,11 @@ def project_path(
     with open(project_path, "w") as f:
         json.dump(serialized_project_settings, f)
     yield project_path
+
+
+@pytest.fixture
+def mock_project(project_path: Path):
+    return BrainwaysProject.open(project_path, lazy_init=True)
 
 
 @pytest.fixture

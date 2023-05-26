@@ -30,18 +30,11 @@ from qtpy.QtWidgets import (
 
 
 class CreateSubjectDialog(QDialog):
-    def __init__(
-        self,
-        project: BrainwaysProject,
-        new_subject_id: Optional[str] = None,
-        subject_index: Optional[int] = None,
-        document_index: Optional[int] = None,
-        parent: Optional[QWidget] = None,
-    ):
+    def __init__(self, project: BrainwaysProject, parent: Optional[QWidget] = None):
         super().__init__(parent)
 
+        self.project = project
         self._add_documents_worker: Optional[FunctionWorker] = None
-
         self.create_subject_button = QPushButton("&Create", self)
         self.create_subject_button.clicked.connect(self.on_create_subject_clicked)
         self.channels_combobox = QComboBox()
@@ -76,17 +69,20 @@ class CreateSubjectDialog(QDialog):
                 int(parent.parent().parent().parent().height() * 0.8),
             )
 
-        if subject_index is not None:
-            self.setWindowTitle("Edit Subject")
-            self.subject = project.subjects[subject_index]
-            self.create_subject_button.setText("Done")
-            self.add_document_rows_async(
-                documents=self.subject.documents, select_document_index=document_index
-            )
-        else:
-            assert new_subject_id is not None
-            self.setWindowTitle(f"New Subject ({new_subject_id})")
-            self.subject = project.add_subject(id=new_subject_id)
+    def edit_subject_async(
+        self, subject_index: int, document_index: int
+    ) -> FunctionWorker:
+        self.setWindowTitle("Edit Subject")
+        self.subject = self.project.subjects[subject_index]
+        self.create_subject_button.setText("Done")
+        return self.add_document_rows_async(
+            documents=self.subject.documents, select_document_index=document_index
+        )
+
+    def new_subject(self, subject_id: str):
+        assert subject_id is not None
+        self.setWindowTitle(f"New Subject ({subject_id})")
+        self.subject = self.project.add_subject(id=subject_id)
 
     def create_table(self) -> QTableWidget:
         table = QTableWidget(0, 4)

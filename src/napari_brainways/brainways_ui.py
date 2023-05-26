@@ -452,6 +452,10 @@ class BrainwaysUI(QWidget):
         return current_document_index
 
     @property
+    def current_valid_document_index(self):
+        return self._current_valid_document_index
+
+    @property
     def current_subject(self):
         return self.project.subjects[self._current_valid_subject_index]
 

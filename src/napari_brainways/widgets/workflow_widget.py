@@ -153,9 +153,8 @@ class WorkflowView(QWidget):
             return
 
         subject_id = values["subject_id"]
-        dialog = CreateSubjectDialog(
-            project=self.controller.project, new_subject_id=subject_id, parent=self
-        )
+        dialog = CreateSubjectDialog(project=self.controller.project, parent=self)
+        dialog.new_subject(subject_id)
         result = dialog.exec()
         if result == QDialog.DialogCode.Rejected:
             return
@@ -164,10 +163,10 @@ class WorkflowView(QWidget):
         self.controller.set_subject_index_async(subject_index)
 
     def on_edit_subject_clicked(self, _=None):
-        dialog = CreateSubjectDialog(
-            project=self.controller.project,
+        dialog = CreateSubjectDialog(project=self.controller.project, parent=self)
+        dialog.edit_subject_async(
             subject_index=self.controller.current_subject_index,
-            parent=self,
+            document_index=self.controller.current_valid_document_index,
         )
         result = dialog.exec()
         if result == QDialog.DialogCode.Rejected:
@@ -252,8 +251,10 @@ class WorkflowView(QWidget):
                 annotation=ExcelMode,
                 label="Excel Mode",
                 options=dict(
-                    tooltip="Output a row per subject or row per image (useful for "
-                    "error analysis)"
+                    tooltip=(
+                        "Output a row per subject or row per image (useful for "
+                        "error analysis)"
+                    )
                 ),
             ),
             min_region_area_um2=dict(
@@ -277,7 +278,9 @@ class WorkflowView(QWidget):
                 annotation=int,
                 label="Min Cell Area (μm)",
                 options=dict(
-                    tooltip="Filter out detected cells with area smaller than this value"
+                    tooltip=(
+                        "Filter out detected cells with area smaller than this value"
+                    )
                 ),
             ),
             max_cell_size_um=dict(

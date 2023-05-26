@@ -1,8 +1,7 @@
 from dataclasses import replace
-from pathlib import Path
 
-from brainways.project.brainways_subject import BrainwaysSubject
-from brainways.project.info_classes import ProjectSettings, SliceInfo
+from brainways.project.brainways_project import BrainwaysProject
+from brainways.project.info_classes import SliceInfo
 from brainways.utils.image import ImageSizeHW, get_resize_size
 from brainways.utils.io_utils import ImagePath
 from pytest import fixture
@@ -15,9 +14,13 @@ from napari_brainways.widgets.create_subject_dialog import CreateSubjectDialog
 
 @fixture
 def create_subject_dialog(
-    qtbot: QtBot, mock_image_path: ImagePath, test_image_size: ImageSizeHW
+    qtbot: QtBot,
+    mock_project: BrainwaysProject,
+    mock_image_path: ImagePath,
+    test_image_size: ImageSizeHW,
 ) -> CreateSubjectDialog:
-    create_subject_dialog = CreateSubjectDialog()
+    create_subject_dialog = CreateSubjectDialog(mock_project)
+    create_subject_dialog.new_subject("test_subject")
     worker = create_subject_dialog.add_filenames_async([str(mock_image_path.filename)])
     worker_join(worker, qtbot)
     worker_join(create_subject_dialog._add_documents_worker, qtbot)
@@ -57,23 +60,14 @@ def test_ignore(
     assert documents == expected
 
 
-def test_subject_path(create_subject_dialog: CreateSubjectDialog):
-    assert (
-        create_subject_dialog.subject_path == create_subject_dialog.subject.subject_path
-    )
-
-
-def test_edit_subject(qtbot: QtBot, create_subject_document: SliceInfo, tmpdir):
-    subject = BrainwaysSubject(
-        settings=ProjectSettings(atlas="", channel=0),
-        documents=[create_subject_document],
-        subject_path=Path(tmpdir / "new"),
-    )
-    dialog = CreateSubjectDialog(subject=subject)
-    worker_join(dialog._add_documents_worker, qtbot)
-    assert dialog.subject == subject
-    assert dialog.files_table.rowCount() == 1
-    assert dialog.subject_path == subject.subject_path
+def test_edit_subject(qtbot: QtBot, mock_project: BrainwaysProject, tmpdir):
+    dialog = CreateSubjectDialog(project=mock_project)
+    worker = dialog.edit_subject_async(subject_index=1, document_index=1)
+    worker_join(worker, qtbot)
+    assert dialog.subject == mock_project.subjects[1]
+    assert dialog.files_table.rowCount() == len(mock_project.subjects[1].documents)
+    selected_row = dialog.files_table.selectionModel().selectedRows()[0].row()
+    assert selected_row == 1
 
 
 def test_uncheck_check(create_subject_dialog: CreateSubjectDialog):
