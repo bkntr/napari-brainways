@@ -157,6 +157,10 @@ class Cell3DViewerController(Controller):
     def has_current_step_params(params: BrainwaysParams) -> bool:
         return True
 
+    @staticmethod
+    def enabled(params: BrainwaysParams) -> bool:
+        return params.tps is not None
+
     def run_model(self, image: np.ndarray, params: BrainwaysParams) -> BrainwaysParams:
         return params
 

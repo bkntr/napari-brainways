@@ -45,6 +45,11 @@ class Controller(ABC):
     def has_current_step_params(params: BrainwaysParams) -> bool:
         ...
 
+    @staticmethod
+    @abstractmethod
+    def enabled(params: BrainwaysParams) -> bool:
+        ...
+
     def pipeline_loaded(self) -> None:
         pass
 

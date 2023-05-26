@@ -37,6 +37,10 @@ class AnnotationViewerController(Controller):
     def has_current_step_params(params: BrainwaysParams) -> bool:
         return True
 
+    @staticmethod
+    def enabled(params: BrainwaysParams) -> bool:
+        return params.tps is not None
+
     def open(self) -> None:
         if self._is_open:
             return

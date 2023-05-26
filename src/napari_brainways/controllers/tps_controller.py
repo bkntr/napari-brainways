@@ -62,6 +62,10 @@ class TpsController(Controller):
     def has_current_step_params(params: BrainwaysParams) -> bool:
         return params.tps is not None
 
+    @staticmethod
+    def enabled(params: BrainwaysParams) -> bool:
+        return params.affine is not None
+
     def run_model(self, image: np.ndarray, params: BrainwaysParams) -> BrainwaysParams:
         affine_image = self.pipeline.transform_image(
             image=image, params=params, until_step=PipelineStep.AFFINE_2D

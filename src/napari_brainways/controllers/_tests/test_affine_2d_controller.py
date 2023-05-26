@@ -1,6 +1,8 @@
 from dataclasses import replace
 from typing import Tuple
 
+from brainways.pipeline.atlas_registration import AtlasRegistrationParams
+from brainways.project.info_classes import BrainwaysParams
 from brainways.utils.test_utils import randomly_modified_params
 from pytest import fixture
 from pytestqt.qtbot import QtBot
@@ -69,3 +71,15 @@ def test_on_params_changed(
         sy=modified_affine_params.sy,
     )
     assert controller.params == modified_params
+
+
+def test_enabled_false_by_default():
+    params = BrainwaysParams()
+    enabled = Affine2DController.enabled(params)
+    assert enabled is False
+
+
+def test_enabled_when_has_atlas():
+    params = BrainwaysParams(atlas=AtlasRegistrationParams())
+    enabled = Affine2DController.enabled(params)
+    assert enabled is True

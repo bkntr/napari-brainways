@@ -41,6 +41,10 @@ class CellDetectorController(Controller):
     def has_current_step_params(params: BrainwaysParams) -> bool:
         return params.cell is not None
 
+    @staticmethod
+    def enabled(params: BrainwaysParams) -> bool:
+        return True
+
     def default_params(
         self, image: np.ndarray, params: BrainwaysParams
     ) -> BrainwaysParams:

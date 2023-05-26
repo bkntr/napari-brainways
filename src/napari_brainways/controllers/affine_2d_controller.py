@@ -108,6 +108,10 @@ class Affine2DController(Controller):
     def has_current_step_params(params: BrainwaysParams) -> bool:
         return params.affine is not None
 
+    @staticmethod
+    def enabled(params: BrainwaysParams) -> bool:
+        return params.atlas is not None
+
     def default_params(
         self, image: np.ndarray, params: BrainwaysParams
     ) -> BrainwaysParams:

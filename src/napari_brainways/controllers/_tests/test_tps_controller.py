@@ -6,7 +6,9 @@ from unittest.mock import patch
 import numpy as np
 import numpy.testing
 import pytest
+from brainways.pipeline.affine_2d import AffineTransform2DParams
 from brainways.pipeline.brainways_params import TPSTransformParams
+from brainways.project.info_classes import BrainwaysParams
 from pytest import fixture
 from pytestqt.qtbot import QtBot
 
@@ -223,3 +225,15 @@ def test_change_params_empties_next_params(
     controller.show(next_params2, from_ui=True)
     controller.next_params()
     assert controller.params == next_params2
+
+
+def test_enabled_false_by_default():
+    params = BrainwaysParams()
+    enabled = TpsController.enabled(params)
+    assert enabled is False
+
+
+def test_enabled_with_affine_params():
+    params = BrainwaysParams(affine=AffineTransform2DParams())
+    enabled = TpsController.enabled(params)
+    assert enabled is True

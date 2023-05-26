@@ -185,6 +185,7 @@ class BrainwaysUI(QWidget):
         self.current_step.open()
         self.current_step.show(self.current_params, self._image)
         self.widget.hide_progress_bar()
+        self.widget.update_enabled_steps()
         self._set_title()
 
     def _set_title(self, valid_document_index: Optional[int] = None):
@@ -281,6 +282,15 @@ class BrainwaysUI(QWidget):
             return None
 
         self._current_valid_document_index = image_index
+
+        if not self.current_step.enabled(self.current_params):
+            self.current_step.close()
+            for step_index in reversed(range(self._current_step_index)):
+                if self.current_step.enabled(self.current_params):
+                    break
+                self._current_step_index = step_index
+            self.widget.set_step(self._current_step_index)
+
         self.widget.set_image_index(image_index + 1)
         self.widget.show_progress_bar()
 
@@ -327,12 +337,12 @@ class BrainwaysUI(QWidget):
         if save_subject:
             self.save_subject()
         self.current_step.close()
+        self.widget.set_step(step_index)
         self._current_step_index = step_index
         if run_async:
             worker = create_worker(self._load_step_default_params)
             worker.returned.connect(self._open_step)
             worker.start()
-            self.widget.set_step(step_index)
             self.widget.show_progress_bar()
             return worker
         else:

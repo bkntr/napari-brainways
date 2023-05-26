@@ -8,6 +8,7 @@ from typing import Callable, List, Union
 import importlib_resources
 import PIL.Image
 from bg_atlasapi.list_atlases import get_all_atlases_lastversions
+from brainways.pipeline.brainways_params import BrainwaysParams
 from brainways.project.brainways_project import BrainwaysProject
 from brainways.project.info_classes import ExcelMode, ProjectSettings
 from brainways.utils.cell_detection_importer.utils import (
@@ -196,6 +197,7 @@ class WorkflowView(QWidget):
     def on_project_changed(self, n_subjects: int):
         self.project_buttons.project_opened()
         self.subject_navigation.project_opened(n_subjects)
+        self.step_buttons.update_enabled(self.controller.current_params)
         self.set_step(0)
 
     def on_subject_changed(self):
@@ -372,6 +374,9 @@ class WorkflowView(QWidget):
     def hide_progress_bar(self):
         self.all_widgets.setEnabled(True)
         self.header_section.hide_progress()
+
+    def update_enabled_steps(self):
+        self.step_buttons.update_enabled(self.controller.current_params)
 
 
 class TitledGroupBox(QWidget):
@@ -575,6 +580,7 @@ class SubjectControls(NavigationControls):
 
 class StepButtons(TitledGroupBox):
     def __init__(self, steps: List[Controller], clicked: Callable, title: str):
+        self.steps = steps
         self.buttons = []
         for i, step in enumerate(steps):
             button = QPushButton(step.name)
@@ -588,6 +594,10 @@ class StepButtons(TitledGroupBox):
     def set_step(self, step_index: int):
         for i, button in enumerate(self.buttons):
             button.setChecked(i == step_index)
+
+    def update_enabled(self, params: BrainwaysParams):
+        for step, button in zip(self.steps, self.buttons):
+            button.setEnabled(step.enabled(params))
 
 
 class StepControls(TitledGroupBox):

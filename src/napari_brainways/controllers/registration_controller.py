@@ -111,6 +111,10 @@ class RegistrationController(Controller):
     def has_current_step_params(params: BrainwaysParams) -> bool:
         return params.atlas is not None
 
+    @staticmethod
+    def enabled(params: BrainwaysParams) -> bool:
+        return True
+
     def pipeline_loaded(self):
         self.widget.update_model(ap_min=0, ap_max=self.pipeline.atlas.shape[0] - 1)
 
@@ -146,7 +150,7 @@ class RegistrationController(Controller):
 
     def model_available(self) -> bool:
         model_supports_atlas = (
-            self.ui.current_subject.atlas.brainglobe_atlas.atlas_name
+            self.ui.project.pipeline.atlas.brainglobe_atlas.atlas_name
             == "whs_sd_rat_39um"
         )
         return BRAINWAYS_REG_MODEL_AVAILABLE and model_supports_atlas
