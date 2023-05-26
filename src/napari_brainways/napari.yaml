@@ -11,10 +11,6 @@ contributions:
     - id: napari-brainways.read_bwp
       title: Read ".bwp" files
       python_name: napari_brainways.napari_reader:get_reader
-  sample_data:
-    - command: napari-brainways.make_sample_data
-      display_name: napari Brainways
-      key: unique_id.1
   widgets:
     - command: napari-brainways.make_qwidget
       display_name: BrainwaysUI

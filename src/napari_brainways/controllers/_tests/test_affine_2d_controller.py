@@ -7,7 +7,6 @@ from pytestqt.qtbot import QtBot
 
 from napari_brainways.brainways_ui import BrainwaysUI
 from napari_brainways.controllers.affine_2d_controller import Affine2DController
-from napari_brainways.test_utils import worker_join
 
 
 @fixture
@@ -17,7 +16,7 @@ def app_on_affine_2d(
     affine_2d_step_index = [
         isinstance(step, Affine2DController) for step in opened_app.steps
     ].index(True)
-    worker_join(opened_app.set_step_index_async(affine_2d_step_index), qtbot)
+    opened_app.set_step_index_async(affine_2d_step_index, run_async=False)
     controller: Affine2DController = opened_app.current_step
     params = controller.params
     params = replace(params, affine=replace(params.affine, angle=10))

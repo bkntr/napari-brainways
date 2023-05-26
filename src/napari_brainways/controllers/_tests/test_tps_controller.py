@@ -22,7 +22,7 @@ def app_on_tps(
     tps_step_index = [
         isinstance(step, TpsController) for step in opened_app.steps
     ].index(True)
-    worker_join(opened_app.set_step_index_async(tps_step_index), qtbot)
+    opened_app.set_step_index_async(tps_step_index, run_async=False)
     controller: TpsController = opened_app.current_step
     return opened_app, controller
 

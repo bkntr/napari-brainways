@@ -7,7 +7,7 @@
 [![codecov](https://codecov.io/gh/bkntr/napari-brainways/branch/main/graph/badge.svg)](https://codecov.io/gh/bkntr/napari-brainways)
 [![napari hub](https://img.shields.io/endpoint?url=https://api.napari-hub.org/shields/napari-brainways)](https://napari-hub.org/plugins/napari-brainways)
 
-Brainways UI
+Brainways GUI
 
 ----------------------------------
 

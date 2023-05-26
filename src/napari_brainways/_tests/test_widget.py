@@ -58,15 +58,14 @@ def test_app_init(app: BrainwaysUI):
 
 
 def test_steps_are_loading(qtbot: QtBot, opened_app: BrainwaysUI, step: Controller):
-    worker_join(opened_app.set_step_index_async(opened_app.steps.index(step)), qtbot)
+    opened_app.set_step_index_async(opened_app.steps.index(step), run_async=False)
 
 
 def test_next_image_prev_image_keeps_changed_params(
     qtbot: QtBot, opened_app: BrainwaysUI, step: Controller
 ):
     # set step
-    worker = opened_app.set_step_index_async(opened_app.steps.index(step))
-    worker_join(worker, qtbot)
+    opened_app.set_step_index_async(opened_app.steps.index(step), run_async=False)
 
     # modify params
     current_params = opened_app.current_params
@@ -139,8 +138,7 @@ def test_save_load_subject(
     image_index: int,
     tmpdir,
 ):
-    worker = opened_app.set_step_index_async(step_index)
-    worker_join(worker, qtbot)
+    opened_app.set_step_index_async(step_index, run_async=False)
     worker = opened_app.set_document_index_async(image_index)
     worker_join(worker, qtbot)
     save_path = Path(tmpdir) / "test"
@@ -177,8 +175,7 @@ def app_batch_run_model(
     step_index: int,
     image_index: int,
 ) -> Tuple[BrainwaysUI, BrainwaysParams]:
-    worker = opened_app.set_step_index_async(step_index)
-    worker_join(worker, qtbot)
+    opened_app.set_step_index_async(step_index, run_async=False)
     worker = opened_app.set_document_index_async(image_index)
     worker_join(worker, qtbot)
     modified_params = randomly_modified_params(opened_app.current_params)
@@ -241,7 +238,7 @@ def test_autosave_on_set_image_index(qtbot: QtBot, opened_app: BrainwaysUI):
 
 def test_autosave_on_set_step_index(qtbot: QtBot, opened_app: BrainwaysUI):
     opened_app.save_subject = Mock()
-    worker_join(opened_app.set_step_index_async(step_index=1), qtbot)
+    opened_app.set_step_index_async(step_index=1, run_async=False)
     opened_app.save_subject.assert_called_once()
 
 
