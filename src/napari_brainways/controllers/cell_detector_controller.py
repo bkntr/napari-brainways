@@ -7,8 +7,6 @@ import napari
 import napari.layers
 import numpy as np
 from brainways.pipeline.brainways_params import BrainwaysParams, CellDetectorParams
-from brainways.pipeline.cell_detector import ClaheNormalizer
-from napari.qt.threading import FunctionWorker, create_worker
 
 from napari_brainways.controllers.base import Controller
 from napari_brainways.utils import update_layer_contrast_limits
@@ -31,7 +29,7 @@ class CellDetectorController(Controller):
         self.cell_mask_layer: napari.layers.Image | None = None
         self._run_lock = False
         self._params = None
-        self._worker = None
+        self._crop = None
 
     @property
     def name(self) -> str:
@@ -48,19 +46,7 @@ class CellDetectorController(Controller):
     def default_params(
         self, image: np.ndarray, params: BrainwaysParams
     ) -> BrainwaysParams:
-        preview_bb = self.selected_bounding_box(
-            image, point=(0.5 * image.shape[0], 0.5 * image.shape[1])
-        )
-        return replace(
-            params,
-            cell=CellDetectorParams(
-                diameter=25.0,
-                net_avg=True,
-                flow_threshold=0.4,
-                mask_threshold=0.0,
-                preview_bb=preview_bb,
-            ),
-        )
+        return params
 
     def run_model(self, image: np.ndarray, params: BrainwaysParams) -> BrainwaysParams:
         return params
@@ -73,24 +59,32 @@ class CellDetectorController(Controller):
     ) -> None:
         self._params = params
 
+        if self._params.cell is not None:
+            cell_detector_params = self._params.cell
+        else:
+            cell_detector_params = self.ui.project.settings.default_cell_detector_params
+
         if image is not None:
             self.input_layer.data = image
             update_layer_contrast_limits(self.input_layer)
 
-        params_widget = self.widget.cell_detector_params_widget
-        params_widget.diameter.value = params.cell.diameter
-        params_widget.net_avg.value = params.cell.net_avg
-        params_widget.flow_threshold.value = params.cell.flow_threshold
-        params_widget.mask_threshold.value = params.cell.mask_threshold
+            x0, y0, w, h = self.selected_bounding_box(
+                image, point=(0.5 * image.shape[0], 0.5 * image.shape[1])
+            )
+            x1 = x0 + w
+            y1 = y0 + h
+            self.preview_box_layer.data = (
+                np.array([[y0, x0], [y0, x1], [y1, x1], [y1, x0]])
+                * self.input_layer.data.shape
+            )
 
-        x0 = params.cell.preview_bb[0]
-        y0 = params.cell.preview_bb[1]
-        x1 = params.cell.preview_bb[0] + params.cell.preview_bb[2]
-        y1 = params.cell.preview_bb[1] + params.cell.preview_bb[3]
-        self.preview_box_layer.data = (
-            np.array([[y0, x0], [y0, x1], [y1, x1], [y1, x0]])
-            * self.input_layer.data.shape
-        )
+        if not from_ui:
+            self.widget.set_cell_detector_params(
+                normalizer=cell_detector_params.normalizer,
+                normalizer_range=cell_detector_params.normalizer_range,
+                unique=self._params.cell is not None,
+            )
+
         self.on_click()
         self.set_preview_affine()
 
@@ -103,7 +97,8 @@ class CellDetectorController(Controller):
             self.model = CellDetector()
 
     def open(self) -> None:
-        self.widget.show()
+        if self._is_open:
+            return
 
         self.input_layer = self.ui.viewer.add_image(
             np.zeros((512, 512), np.uint8),
@@ -141,6 +136,7 @@ class CellDetectorController(Controller):
 
         self._image = None
         self._params = None
+        self._crop = None
 
         self.input_layer = None
         self.preview_box_layer = None
@@ -169,56 +165,78 @@ class CellDetectorController(Controller):
         self.cell_mask_layer.scale = self._preview_scale
 
     def _on_cell_detector_returned(self, mask: np.ndarray):
+        if self._params.cell is not None:
+            cell_detector_params = self._params.cell
+        else:
+            cell_detector_params = self.ui.project.settings.default_cell_detector_params
+        normalizer = self.model.get_normalizer(cell_detector_params)
+        if normalizer is not None:
+            self.crop_layer.data = normalizer.before(self._crop, axes=None).squeeze()
+            update_layer_contrast_limits(
+                self.crop_layer, contrast_limits_quantiles=(0.0, 1.0)
+            )
         self.cell_mask_layer.data = mask
         self.cell_mask_layer.visible = True
         self.ui.viewer.layers.selection = {self.preview_box_layer}
+        self.ui.widget.hide_progress_bar()
 
-    def _on_cell_detector_started(self):
-        self._run_lock = True
-        self.widget.show_progress_bar()
-
-    def _on_cell_detector_finished(self):
-        self._run_lock = False
-        self.widget.hide_progress_bar()
-
-    def run_cell_detector_preview_async(
+    def on_params_changed(
         self,
-        diameter: float,
-        net_avg: bool,
-        flow_threshold: float,
-        mask_threshold: float,
+        normalizer: str,
+        min_value: float,
+        max_value: float,
+        unique: bool = False,
     ):
+        if max_value <= min_value:
+            max_value = min(1, min_value + 0.001)
+        normalizer_range = (min_value / 1000, max_value / 1000)
+        cell_detector_params = CellDetectorParams(
+            normalizer=normalizer, normalizer_range=normalizer_range
+        )
+        if unique:
+            # in unique mode, set cell detector params unique to current slice
+            self._params = replace(self._params, cell=cell_detector_params)
+        elif self._params.cell is not None:
+            # if changing from unique mode to non-unique mode, remove unique and set
+            # default params
+            self._params = replace(self._params, cell=None)
+            p = self.ui.project.settings.default_cell_detector_params
+            self.widget.set_cell_detector_params(
+                normalizer=p.normalizer,
+                normalizer_range=p.normalizer_range,
+                unique=False,
+            )
+        else:
+            # in default mode, change project default settings
+            self.ui.project.settings = replace(
+                self.ui.project.settings,
+                default_cell_detector_params=cell_detector_params,
+            )
+
+    def _run_cell_detector_on_preview(self):
+        self.load_model()
+        self.ui.save_subject()
+
+        if self._params.cell is not None:
+            cell_detector_params = self._params.cell
+        else:
+            cell_detector_params = self.ui.project.settings.default_cell_detector_params
+        return self.model.run_cell_detector(
+            image=self._crop, params=cell_detector_params
+        )
+
+    def run_cell_detector_preview_async(self):
         self._check_is_open()
 
-        self.load_model()
-        self._worker: FunctionWorker = create_worker(
-            self.model.run_cell_detector,
-            self.crop_layer.data,
-            normalizer=ClaheNormalizer(),
-            # diameter=diameter,
-            # net_avg=net_avg,
-            # flow_threshold=flow_threshold,
-            # mask_threshold=mask_threshold,
+        self.ui.do_work_async(
+            self._run_cell_detector_on_preview,
+            return_callback=self._on_cell_detector_returned,
+            progress_label="Running cell detector on preview...",
         )
-        self._worker.returned.connect(self._on_cell_detector_returned)
-        self._worker.started.connect(self._on_cell_detector_started)
-        self._worker.finished.connect(self._on_cell_detector_finished)
-        self._worker.start()
 
     @property
     def params(self) -> BrainwaysParams:
-        params_widget = self.widget.cell_detector_params_widget
-        params = replace(
-            self._params,
-            cell=CellDetectorParams(
-                diameter=params_widget.diameter.value,
-                net_avg=params_widget.net_avg.value,
-                flow_threshold=params_widget.flow_threshold.value,
-                mask_threshold=params_widget.mask_threshold.value,
-                preview_bb=self.selected_bounding_box(),
-            ),
-        )
-        return params
+        return self._params
 
     def selected_bounding_box(
         self, image: np.ndarray | None = None, point: Tuple[float, float] | None = None
@@ -227,7 +245,6 @@ class CellDetectorController(Controller):
 
         :return: x, y, w, h
         """
-        # TODO: convert points layer to shapes
         if image is None:
             image = self.input_layer.data
 
@@ -286,9 +303,20 @@ class CellDetectorController(Controller):
             )
             .compute()
         )
-        self.crop_layer.data = highres_crop
-        update_layer_contrast_limits(
-            self.crop_layer, contrast_limits_quantiles=(0, 0.98)
-        )
-        self.cell_mask_layer.data = np.zeros_like(self.crop_layer.data, dtype=np.uint8)
+
+        # if self._params.cell is not None:
+        #     cell_detector_params = self._params.cell
+        # else:
+        #     cell_detector_params = self.ui.project.settings.default_cell_detector_params
+        # normalizer = get_normalizer(
+        #     name=cell_detector_params.normalizer,
+        #     range=cell_detector_params.normalizer_range,
+        # )
+        # if normalizer is not None:
+        #     highres_crop = normalizer.before(highres_crop).squeeze()
+
+        self._crop = highres_crop
+        self.crop_layer.data = self._crop
+        update_layer_contrast_limits(self.crop_layer)
+        self.cell_mask_layer.data = np.zeros_like(self._crop, dtype=np.uint8)
         self.set_preview_affine()

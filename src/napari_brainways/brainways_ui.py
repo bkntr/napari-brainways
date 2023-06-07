@@ -225,6 +225,7 @@ class BrainwaysUI(QWidget):
         if persist:
             self.persist_current_params()
         self.current_subject.save()
+        self.project.save()
 
     def create_excel_async(
         self,

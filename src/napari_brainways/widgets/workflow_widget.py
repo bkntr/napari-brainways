@@ -123,6 +123,10 @@ class WorkflowView(QWidget):
         )
         if path == "":
             return
+
+        if Path(path).suffix == "":
+            path += ".bwp"
+
         self._prev_path = str(Path(path).parent)
 
         available_atlases = list(get_all_atlases_lastversions().keys())
@@ -514,7 +518,7 @@ class NavigationControls(TitledGroupBox):
     @max.setter
     def max(self, value: int):
         self.selector_widget.value.max = value
-        self.selector_max_label.value = f"/ {value}"
+        self.selector_max_label.setText(f"/ {value}")
 
     @property
     def visible(self) -> bool:
