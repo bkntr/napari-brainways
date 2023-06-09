@@ -92,14 +92,14 @@ class WorkflowView(QWidget):
         )
         self.all_widgets.layout().addStretch()
 
-        scroll_area = QScrollArea(self)
-        scroll_area.setWidget(self.all_widgets)
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self.scroll_area = QScrollArea(self)
+        self.scroll_area.setWidget(self.all_widgets)
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         self.setLayout(QVBoxLayout())
         self.layout().setContentsMargins(0, 0, 0, 0)
-        self.layout().addWidget(scroll_area)
+        self.layout().addWidget(self.scroll_area)
 
         self.subject_controls.hide()
 
@@ -373,6 +373,7 @@ class WorkflowView(QWidget):
         self.progress_bar.text = label
         self.progress_bar.max = max_value
         self.header_section.show_progress()
+        self.scroll_area.verticalScrollBar().setValue(0)
 
     def hide_progress_bar(self):
         self.all_widgets.setEnabled(True)
