@@ -183,7 +183,7 @@ class RegistrationController(Controller):
         self.atlas_slice_layer.data = atlas_slice
         update_layer_contrast_limits(self.atlas_slice_layer, (0.01, 0.98))
 
-        atlas_box = self.pipeline.atlas.bounding_boxes[int(self.params.atlas.ap)]
+        atlas_box = self.pipeline.atlas.bounding_box(int(self.params.atlas.ap))
         input_scale = atlas_box[3] / self._input_box[3]
         self.input_layer.scale = (input_scale, input_scale)
         self.mask_layer.scale = (input_scale, input_scale)
