@@ -1,9 +1,11 @@
 from dataclasses import replace
 
+from aicsimageio.types import PhysicalPixelSizes
 from brainways.project.brainways_project import BrainwaysProject
 from brainways.project.info_classes import SliceInfo
 from brainways.utils.image import ImageSizeHW, get_resize_size
 from brainways.utils.io_utils import ImagePath
+from brainways.utils.io_utils.readers import QupathReader
 from pytest import fixture
 from pytestqt.qtbot import QtBot
 from qtpy.QtWidgets import QCheckBox
@@ -19,6 +21,7 @@ def create_subject_dialog(
     mock_image_path: ImagePath,
     test_image_size: ImageSizeHW,
 ) -> CreateSubjectDialog:
+    QupathReader.physical_pixel_sizes = PhysicalPixelSizes(Z=None, Y=10.0, X=10.0)
     create_subject_dialog = CreateSubjectDialog(mock_project)
     create_subject_dialog.new_subject("test_subject")
     worker = create_subject_dialog.add_filenames_async([str(mock_image_path.filename)])
@@ -37,6 +40,7 @@ def create_subject_document(
         lowres_image_size=get_resize_size(
             test_image_size, (1024, 1024), keep_aspect=True
         ),
+        physical_pixel_sizes=(10.0, 10.0),
     )
 
 
