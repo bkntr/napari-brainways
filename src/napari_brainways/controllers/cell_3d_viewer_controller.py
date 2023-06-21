@@ -32,10 +32,14 @@ class Cell3DViewerController(Controller):
         self.widget = CellViewerWidget(self)
 
     def set_2d_mode(self):
+        if not self._3d_view_mode:
+            return
         self._3d_view_mode = False
         self.show(params=self._params, image=self._image)
 
     def set_3d_mode(self):
+        if self._3d_view_mode:
+            return
         self._3d_view_mode = True
         self.show(params=self._params, image=self._image)
 
@@ -44,13 +48,6 @@ class Cell3DViewerController(Controller):
             return
 
         self._atlas = self.ui.project.atlas
-        self.input_layer = self.ui.viewer.add_image(np.zeros((10, 10)), name="Image")
-        self.atlas_layer = self.ui.viewer.add_image(
-            self._atlas.reference.numpy(),
-            name="Atlas",
-            rendering="attenuated_mip",
-            attenuation=0.5,
-        )
         self.points_layer = self.ui.viewer.add_points(
             size=1, ndim=3, name="Detected Cells"
         )
@@ -62,8 +59,10 @@ class Cell3DViewerController(Controller):
         if not self._is_open:
             return
 
-        self.ui.viewer.layers.remove(self.input_layer)
-        self.ui.viewer.layers.remove(self.atlas_layer)
+        if self._3d_view_mode:
+            self.ui.viewer.layers.remove(self.atlas_layer)
+        else:
+            self.ui.viewer.layers.remove(self.input_layer)
         self.ui.viewer.layers.remove(self.points_layer)
         self.atlas_layer = None
         self.points_layer = None
@@ -89,8 +88,15 @@ class Cell3DViewerController(Controller):
             self.show_2d(image=self._image, from_ui=from_ui)
 
     def show_3d(self):
-        self.input_layer.visible = False
-        self.atlas_layer.visible = True
+        if self.input_layer is not None:
+            self.ui.viewer.layers.remove(self.input_layer)
+            self.input_layer = None
+        self.atlas_layer = self.ui.viewer.add_image(
+            self._atlas.reference.numpy(),
+            name="Atlas",
+            rendering="attenuated_mip",
+            attenuation=0.5,
+        )
         self.ui.viewer.dims.ndisplay = 3
 
         self.ui.viewer.layers.remove(self.points_layer)
@@ -111,12 +117,17 @@ class Cell3DViewerController(Controller):
         else:
             self.points_layer.data = []
 
+        self.ui.viewer.reset_view()
+
     def show_2d(self, image: np.ndarray | None = None, from_ui: bool = False):
         if image is None:
             return
 
-        self.input_layer.visible = True
-        self.atlas_layer.visible = False
+        if self.atlas_layer is not None:
+            self.ui.viewer.layers.remove(self.atlas_layer)
+            self.atlas_layer = None
+        self.input_layer = self.ui.viewer.add_image(image, name="Image")
+        update_layer_contrast_limits(self.input_layer)
         self.ui.viewer.dims.ndisplay = 2
 
         self.ui.viewer.layers.remove(self.points_layer)
@@ -127,10 +138,7 @@ class Cell3DViewerController(Controller):
         subject = self.ui.current_subject
         document = self.ui.current_document
 
-        # TODO: read image from disk with options for highres and other channels
-        self.input_layer.data = image
-        update_layer_contrast_limits(self.input_layer)
-        self.ui.viewer.reset_view()
+        # TODO: read image from disk with options for other channels
 
         cells_atlas = subject.get_cells_on_atlas([document])
         if cells_atlas is not None:
@@ -147,6 +155,8 @@ class Cell3DViewerController(Controller):
             self.points_layer.selected_data = set()
         else:
             self.points_layer.data = []
+
+        self.ui.viewer.reset_view()
 
     def default_params(
         self, image: np.ndarray, params: BrainwaysParams
@@ -186,4 +196,4 @@ class Cell3DViewerController(Controller):
 
     @property
     def name(self) -> str:
-        return "3D Cell Viewer"
+        return "Cell Viewer"

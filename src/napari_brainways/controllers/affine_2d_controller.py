@@ -145,7 +145,6 @@ class Affine2DController(Controller):
             )
             self.input_layer.data = image
             update_layer_contrast_limits(self.input_layer)
-            self.ui.viewer.reset_view()
 
         if not from_ui:
             self.widget.set_params(
@@ -164,6 +163,8 @@ class Affine2DController(Controller):
         )
 
         self.input_layer.data = registered_image
+
+        self.ui.viewer.reset_view()
 
         # transform = self.pipeline.get_image_to_atlas_transform(
         #     brainways_params=params,
