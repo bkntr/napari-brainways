@@ -99,22 +99,22 @@ def test_run_workflow(qtbot: QtBot, opened_app: BrainwaysUI):
 def test_open_project(
     qtbot: QtBot,
     app: BrainwaysUI,
-    project_path: Path,
+    mock_project: BrainwaysProject,
 ):
     assert app.project is None
-    worker = app.open_project_async(project_path)
+    worker = app.open_project_async(mock_project.path)
     worker_join(worker, qtbot)
     assert isinstance(app.project, BrainwaysProject)
     assert isinstance(app.current_subject, BrainwaysSubject)
 
 
 def test_open_project_without_subjects(
-    qtbot: QtBot, app: BrainwaysUI, project_path: Path
+    qtbot: QtBot, app: BrainwaysUI, mock_project: BrainwaysProject
 ):
-    for subject_dir in project_path.parent.glob("subject*"):
+    for subject_dir in mock_project.path.parent.glob("subject*"):
         shutil.rmtree(subject_dir)
     assert app.project is None
-    worker = app.open_project_async(project_path)
+    worker = app.open_project_async(mock_project.path)
     worker_join(worker, qtbot)
     assert isinstance(app.project, BrainwaysProject)
     assert app._current_valid_subject_index is None

@@ -1,11 +1,9 @@
-import json
 import os
-import pickle
 import shutil
-from dataclasses import asdict, replace
+from dataclasses import replace
 from pathlib import Path
 from typing import List, Tuple
-from unittest.mock import Mock, create_autospec, patch
+from unittest.mock import Mock, create_autospec
 
 import numpy as np
 import pytest
@@ -18,12 +16,10 @@ from brainways.pipeline.brainways_params import (
     TPSTransformParams,
 )
 from brainways.project.brainways_project import BrainwaysProject
-from brainways.project.brainways_subject import BrainwaysSubject
-from brainways.project.info_classes import ProjectSettings, SliceInfo
+from brainways.project.info_classes import ProjectSettings, SliceInfo, SubjectInfo
 from brainways.utils.atlas.brainways_atlas import AtlasSlice, BrainwaysAtlas
 from brainways.utils.image import ImageSizeHW
 from brainways.utils.io_utils import ImagePath
-from brainways.utils.io_utils.readers.base import ImageReader
 from PIL import Image
 from pytest import fixture
 from pytestqt.qtbot import QtBot
@@ -77,9 +73,9 @@ def opened_app(
     qtbot: QtBot,
     app: BrainwaysUI,
     test_data: Tuple[np.ndarray, AtlasSlice],
-    project_path: Path,
+    mock_project: BrainwaysProject,
 ):
-    worker = app.open_project_async(project_path)
+    worker = app.open_project_async(mock_project.path)
     worker_join(worker, qtbot)
     return app
 
@@ -148,25 +144,6 @@ def test_image_size(test_data: Tuple[np.ndarray, AtlasSlice]) -> ImageSizeHW:
     return input.shape
 
 
-@fixture(autouse=True, scope="session")
-def image_reader_mock(test_data: Tuple[np.ndarray, AtlasSlice]):
-    mock_image_reader = create_autospec(ImageReader)
-    test_image, test_atlas_slice = test_data
-    HEIGHT = test_image.shape[0]
-    WIDTH = test_image.shape[1]
-    mock_image_reader.read_image.return_value = test_image
-    mock_image_reader.scene_bb = (0, 0, WIDTH, HEIGHT)
-
-    mock_get_scenes = Mock(return_value=[0])
-
-    with patch(
-        "brainways.utils.io_utils.readers.get_reader", return_value=mock_image_reader
-    ), patch(
-        "brainways.utils.io_utils.readers.get_scenes", return_value=mock_get_scenes
-    ):
-        yield
-
-
 @pytest.fixture
 def mock_image_path(test_data: Tuple[np.ndarray, AtlasSlice], tmpdir) -> ImagePath:
     image, _ = test_data
@@ -190,8 +167,8 @@ def mock_subject_documents(
         atlas=AtlasRegistrationParams(ap=5),
         affine=AffineTransform2DParams(),
         tps=TPSTransformParams(
-            points_src=tps_points,
-            points_dst=tps_points,
+            points_src=tps_points.tolist(),
+            points_dst=tps_points.tolist(),
         ),
     )
     documents = []
@@ -216,73 +193,34 @@ def mock_subject_documents(
 
 @pytest.fixture
 def mock_project_settings() -> ProjectSettings:
-    return ProjectSettings(atlas="MOCK_ATLAS", channel=0)
-
-
-def _create_subject(
-    subject_dir: Path, project_settings: ProjectSettings, slice_infos: List[SliceInfo]
-) -> Path:
-    subject_dir.mkdir()
-    serialized_subject_settings = asdict(project_settings)
-    serialized_subject_documents = [asdict(doc) for doc in slice_infos]
-    with open(subject_dir / "brainways.bin", "wb") as f:
-        pickle.dump((serialized_subject_settings, serialized_subject_documents), f)
-    return subject_path
+    return ProjectSettings(
+        atlas="MOCK_ATLAS", channel=0, condition_names=["condition1", "condition2"]
+    )
 
 
 @pytest.fixture
-def subject_path(
+def mock_project(
     tmpdir,
     mock_project_settings: ProjectSettings,
     mock_subject_documents: List[SliceInfo],
-) -> Path:
-    subject_path = Path(tmpdir) / "project/subject1/brainways.bin"
-    subject_path.parent.mkdir(parents=True)
-    serialized_subject_settings = asdict(mock_project_settings)
-    serialized_subject_documents = [asdict(doc) for doc in mock_subject_documents]
-    with open(subject_path, "wb") as f:
-        pickle.dump((serialized_subject_settings, serialized_subject_documents), f)
-    yield subject_path
-
-
-@pytest.fixture
-def project_path(
-    tmpdir,
-    mock_project_settings: ProjectSettings,
-    mock_subject_documents: List[SliceInfo],
-) -> Path:
-    project_dir = Path(tmpdir) / "project"
-    project_path = project_dir / "project.bwp"
-    project_dir.mkdir()
-    _create_subject(
-        project_dir / "subject1",
-        project_settings=mock_project_settings,
-        slice_infos=mock_subject_documents,
+) -> BrainwaysProject:
+    project_path = Path(tmpdir) / "project/project.bwp"
+    project_path.parent.mkdir()
+    project = BrainwaysProject.create(
+        project_path, settings=mock_project_settings, lazy_init=True
     )
-    _create_subject(
-        project_dir / "subject2",
-        project_settings=mock_project_settings,
-        slice_infos=mock_subject_documents,
+    subject1 = project.add_subject(
+        SubjectInfo(
+            name="subject1", conditions={"condition1": "c1", "condition2": "c2"}
+        )
     )
-    serialized_project_settings = asdict(mock_project_settings)
-    with open(project_path, "w") as f:
-        json.dump(serialized_project_settings, f)
-    yield project_path
-
-
-@pytest.fixture
-def mock_project(project_path: Path):
-    return BrainwaysProject.open(project_path, lazy_init=True)
-
-
-@pytest.fixture
-def brainways_subject(
-    subject_path: Path,
-    test_data: Tuple[np.ndarray, AtlasSlice],
-    mock_atlas: BrainwaysAtlas,
-) -> BrainwaysSubject:
-    brainways_subject = BrainwaysSubject.open(subject_path)
-    brainways_subject.atlas = mock_atlas
-    for document in brainways_subject.documents:
-        brainways_subject.read_lowres_image(document)
-    return brainways_subject
+    subject1.documents = mock_subject_documents
+    subject1.save()
+    subject2 = project.add_subject(
+        SubjectInfo(
+            name="subject2", conditions={"condition1": "c1", "condition2": "c2"}
+        )
+    )
+    subject2.documents = mock_subject_documents
+    subject2.save()
+    return project

@@ -34,7 +34,7 @@ def elastix_mock(
     app_on_tps: Tuple[BrainwaysUI, TpsController],
 ):
     app, controller = app_on_tps
-    elastix_result = deepcopy(controller.params.tps.points_dst)
+    elastix_result = deepcopy(np.array(controller.params.tps.points_dst))
     elastix_result[0, 0] += 1
     with patch(
         "brainways.pipeline.tps.elastix_registration",
@@ -56,7 +56,7 @@ def test_run_elastix_updates_params(
     elastix_mock,
 ):
     app, controller = app_on_tps
-    expected = controller.params.tps.points_dst.copy()
+    expected = np.array(controller.params.tps.points_dst).copy()
     expected[0, 0] -= 1
     worker_join(controller.run_elastix_async(), qtbot)
     numpy.testing.assert_allclose(controller.params.tps.points_dst, expected, atol=0.1)
@@ -69,10 +69,10 @@ def test_run_elastix_updates_ui(
 ):
     app, controller = app_on_tps
     expected = controller.params.tps.points_dst.copy()
-    expected[0, 0] -= 1
+    expected[0][0] -= 1
     worker_join(controller.run_elastix_async(), qtbot)
     numpy.testing.assert_allclose(
-        controller.points_atlas_layer.data, expected[:, ::-1], atol=0.1
+        controller.points_atlas_layer.data, np.array(expected)[:, ::-1], atol=0.1
     )
 
 
@@ -123,8 +123,8 @@ def test_on_points_changed_keeps_params_types(
     modified = val + 1
     controller.points_atlas_layer.data[0, 0] = modified
     controller.on_points_changed()
-    assert isinstance(controller.params.tps.points_dst, np.ndarray)
-    assert isinstance(controller.params.tps.points_dst[0, 0], np.float32)
+    assert isinstance(controller.params.tps.points_dst, list)
+    assert isinstance(controller.params.tps.points_dst[0][0], float)
 
 
 def test_reset_params(

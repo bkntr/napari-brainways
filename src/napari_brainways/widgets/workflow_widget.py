@@ -137,15 +137,22 @@ class WorkflowView(QWidget):
                 widget_type="ComboBox",
                 options=dict(choices=available_atlases),
                 annotation=str,
-                label="Importer Type",
+                label="Atlas",
+            ),
+            condition_names=dict(
+                value="condition1;condition2",
+                annotation=str,
+                label="Condition Names",
             ),
         )
         if user_values is None:
             return
 
-        atlas = user_values["atlas"]
-
-        settings = ProjectSettings(atlas=atlas, channel=0)
+        settings = ProjectSettings(
+            atlas=user_values["atlas"],
+            channel=0,
+            condition_names=user_values["condition_names"].split(";"),
+        )
         project = BrainwaysProject.create(path=path, settings=settings, lazy_init=True)
         self.controller.open_project_async(project.path)
 
@@ -159,7 +166,7 @@ class WorkflowView(QWidget):
 
         subject_id = values["subject_id"]
         dialog = CreateSubjectDialog(project=self.controller.project, parent=self)
-        dialog.new_subject(subject_id)
+        dialog.new_subject(subject_id=subject_id, conditions={})
         result = dialog.exec()
         if result == QDialog.DialogCode.Rejected:
             return

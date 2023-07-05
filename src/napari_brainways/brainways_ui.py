@@ -193,7 +193,7 @@ class BrainwaysUI(QWidget):
             valid_document_index = self._current_valid_document_index
         _, document = self.current_subject.valid_documents[valid_document_index]
         self.viewer.title = (
-            f"{self.current_subject.subject_path.name} - {document.path}"
+            f"{self.current_subject.subject_info.name} - {document.path}"
         )
 
     def _on_project_opened(self):
@@ -468,7 +468,7 @@ class BrainwaysUI(QWidget):
         return self._current_valid_document_index
 
     @property
-    def current_subject(self):
+    def current_subject(self) -> BrainwaysSubject:
         return self.project.subjects[self._current_valid_subject_index]
 
     @current_subject.setter

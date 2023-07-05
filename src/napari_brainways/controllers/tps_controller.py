@@ -101,11 +101,11 @@ class TpsController(Controller):
             self.points_input_layer.scale = (display_scale, display_scale)
             self.points_atlas_layer.scale = (display_scale, display_scale)
         with self.points_input_layer.events.data.blocker():
-            np_pts = params.tps.points_src[:, ::-1]
+            np_pts = np.array(params.tps.points_src)[:, ::-1]
             self.points_input_layer.data = np_pts.copy()
             self.points_input_layer.selected_data = set()
         with self.points_atlas_layer.events.data.blocker():
-            np_pts = params.tps.points_dst[:, ::-1]
+            np_pts = np.array(params.tps.points_dst)[:, ::-1]
             self.points_atlas_layer.data = np_pts.copy()
             self.points_atlas_layer.selected_data = set()
 
@@ -215,8 +215,8 @@ class TpsController(Controller):
         points_dst = self.points_atlas_layer.data[:, ::-1]
 
         tps_params = TPSTransformParams(
-            points_src=points_src.astype(np.float32),
-            points_dst=points_dst.astype(np.float32),
+            points_src=points_src.astype(np.float32).tolist(),
+            points_dst=points_dst.astype(np.float32).tolist(),
         )
         updated_params = replace(self._params, tps=tps_params)
         self.show(params=updated_params, from_ui=True)

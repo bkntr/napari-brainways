@@ -23,7 +23,9 @@ def create_subject_dialog(
 ) -> CreateSubjectDialog:
     QupathReader.physical_pixel_sizes = PhysicalPixelSizes(Z=None, Y=10.0, X=10.0)
     create_subject_dialog = CreateSubjectDialog(mock_project)
-    create_subject_dialog.new_subject("test_subject")
+    create_subject_dialog.new_subject(
+        subject_id="test_subject", conditions={"condition1": "c1", "condition2": "c2"}
+    )
     worker = create_subject_dialog.add_filenames_async([str(mock_image_path.filename)])
     worker_join(worker, qtbot)
     worker_join(create_subject_dialog._add_documents_worker, qtbot)
@@ -72,6 +74,8 @@ def test_edit_subject(qtbot: QtBot, mock_project: BrainwaysProject, tmpdir):
     assert dialog.files_table.rowCount() == len(mock_project.subjects[1].documents)
     selected_row = dialog.files_table.selectionModel().selectedRows()[0].row()
     assert selected_row == 1
+    assert dialog.conditions_widget[0].value == "c1"
+    assert dialog.conditions_widget[1].value == "c2"
 
 
 def test_uncheck_check(create_subject_dialog: CreateSubjectDialog):
@@ -79,3 +83,15 @@ def test_uncheck_check(create_subject_dialog: CreateSubjectDialog):
     checkbox.setChecked(False)
     checkbox.setChecked(True)
     assert create_subject_dialog.subject.documents[0].ignore is False
+
+
+def test_conditions_initialized(create_subject_dialog: CreateSubjectDialog):
+    assert create_subject_dialog.conditions_widget[0].value == "c1"
+    assert create_subject_dialog.conditions_widget[1].value == "c2"
+
+
+def test_conditions_changed_works(create_subject_dialog: CreateSubjectDialog):
+    create_subject_dialog.conditions_widget[0].value = "mod1"
+    create_subject_dialog.conditions_widget[1].value = "mod2"
+    assert create_subject_dialog.subject.subject_info.conditions["condition1"] == "mod1"
+    assert create_subject_dialog.subject.subject_info.conditions["condition2"] == "mod2"
