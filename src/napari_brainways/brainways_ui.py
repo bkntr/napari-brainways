@@ -9,7 +9,7 @@ import numpy as np
 from brainways.pipeline.brainways_params import BrainwaysParams
 from brainways.project.brainways_project import BrainwaysProject
 from brainways.project.brainways_subject import BrainwaysSubject
-from brainways.project.info_classes import ExcelMode, SliceInfo
+from brainways.project.info_classes import SliceInfo
 from brainways.utils.cell_detection_importer.cell_detection_importer import (
     CellDetectionImporter,
 )
@@ -17,6 +17,7 @@ from napari.qt.threading import FunctionWorker, GeneratorWorker, create_worker
 from qtpy.QtWidgets import QVBoxLayout, QWidget
 
 from napari_brainways.controllers.affine_2d_controller import Affine2DController
+from napari_brainways.controllers.analysis_controller import AnalysisController
 from napari_brainways.controllers.annotation_viewer_controller import (
     AnnotationViewerController,
 )
@@ -41,6 +42,7 @@ class BrainwaysUI(QWidget):
         self.annotation_viewer_controller = AnnotationViewerController(self)
         self.cell_detector_controller = CellDetectorController(self)
         self.cell_viewer_controller = Cell3DViewerController(self)
+        self.analysis_controller = AnalysisController(self)
 
         self.steps = [
             self.registration_controller,
@@ -49,6 +51,7 @@ class BrainwaysUI(QWidget):
             self.annotation_viewer_controller,
             self.cell_detector_controller,
             self.cell_viewer_controller,
+            self.analysis_controller,
         ]
 
         self.project: Optional[BrainwaysProject] = None
@@ -217,6 +220,7 @@ class BrainwaysUI(QWidget):
         self.widget.hide_progress_bar()
 
     def persist_current_params(self):
+        assert self.current_step.params is not None
         self.current_document = replace(
             self.current_document, params=self.current_step.params
         )
@@ -226,27 +230,6 @@ class BrainwaysUI(QWidget):
             self.persist_current_params()
         self.current_subject.save()
         self.project.save()
-
-    def create_excel_async(
-        self,
-        path: Path,
-        min_region_area_um2: Optional[int] = None,
-        cells_per_area_um2: Optional[int] = None,
-        min_cell_size_um: Optional[float] = None,
-        max_cell_size_um: Optional[float] = None,
-        excel_mode: ExcelMode = ExcelMode.ROW_PER_SUBJECT,
-    ) -> FunctionWorker:
-        return self.do_work_async(
-            self.project.create_excel_iter,
-            path=path,
-            min_region_area_um2=min_region_area_um2,
-            cells_per_area_um2=cells_per_area_um2,
-            min_cell_size_um=min_cell_size_um,
-            max_cell_size_um=max_cell_size_um,
-            excel_mode=excel_mode,
-            progress_label="Creating Results Excel...",
-            progress_max_value=len(self.project.subjects),
-        )
 
     def set_subject_index_async(
         self,

@@ -29,7 +29,7 @@ def subject_index(request):
     return request.param
 
 
-STEP_INDICES = [0, 1, 2, 3, 4, 5]
+STEP_INDICES = [0, 1, 2, 3, 4, 5, 6]
 
 
 @fixture(params=STEP_INDICES)

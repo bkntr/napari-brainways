@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import functools
 import os
+from dataclasses import replace
 from pathlib import Path
 from typing import Callable, List, Union
 
@@ -10,7 +11,7 @@ import PIL.Image
 from bg_atlasapi.list_atlases import get_all_atlases_lastversions
 from brainways.pipeline.brainways_params import BrainwaysParams
 from brainways.project.brainways_project import BrainwaysProject
-from brainways.project.info_classes import ExcelMode, ProjectSettings
+from brainways.project.info_classes import ProjectSettings
 from brainways.utils.cell_detection_importer.utils import (
     cell_detection_importer_types,
     get_cell_detection_importer,
@@ -45,11 +46,10 @@ class WorkflowView(QWidget):
 
         self.project_buttons = ProjectButtons(
             open_project=self.on_open_project_clicked,
-            edit_project=self.on_edit_subject_clicked,
+            edit_project=self.on_edit_project_clicked,
             new_project=self.on_create_project_clicked,
         )
         self.project_actions_section = ProjectActionsSection(
-            export_excel=self.on_export_clicked,
             import_cells=self.on_import_cells_clicked,
             run_cell_detector=self.on_run_cell_detector_clicked,
         )
@@ -58,6 +58,7 @@ class WorkflowView(QWidget):
             prev_callback=self.controller.prev_subject,
             next_callback=self.controller.next_subject,
             add_subject_callback=self.on_add_subject_clicked,
+            edit_subject_callback=self.on_edit_subject_clicked,
             visible=False,
         )
         self.image_navigation = NavigationControls(
@@ -142,7 +143,7 @@ class WorkflowView(QWidget):
             condition_names=dict(
                 value="condition1;condition2",
                 annotation=str,
-                label="Condition Names",
+                label="Conditions",
             ),
         )
         if user_values is None:
@@ -155,6 +156,24 @@ class WorkflowView(QWidget):
         )
         project = BrainwaysProject.create(path=path, settings=settings, lazy_init=True)
         self.controller.open_project_async(project.path)
+
+    def on_edit_project_clicked(self, _=None):
+        settings: ProjectSettings = self.controller.project.settings
+        user_values = request_values(
+            title="Edit Brainways Project",
+            condition_names=dict(
+                value=";".join(settings.condition_names),
+                annotation=str,
+                label="Conditions",
+            ),
+        )
+        if user_values is None:
+            return
+
+        self.controller.project.settings = replace(
+            settings, condition_names=user_values["condition_names"].split(";")
+        )
+        self.controller.project.save()
 
     def on_add_subject_clicked(self, _=None):
         values = request_values(
@@ -239,82 +258,6 @@ class WorkflowView(QWidget):
 
     def on_save_button_clicked(self, _=None):
         self.controller.save_subject()
-
-    def on_export_clicked(self, _=None):
-        kwargs = {}
-        if "SNAP" in os.environ:
-            kwargs["options"] = QFileDialog.DontUseNativeDialog
-
-        path, _ = QFileDialog.getSaveFileName(
-            self,
-            "Export Results",
-            self._prev_path,
-            "XLSX File (*.xlsx)",
-            **kwargs,
-        )
-        if path == "":
-            return
-        self._prev_path = str(Path(path).parent)
-
-        values = request_values(
-            title="Excel Parameters",
-            excel_mode=dict(
-                value=ExcelMode.ROW_PER_SUBJECT,
-                annotation=ExcelMode,
-                label="Excel Mode",
-                options=dict(
-                    tooltip=(
-                        "Output a row per subject or row per image (useful for "
-                        "error analysis)"
-                    )
-                ),
-            ),
-            min_region_area_um2=dict(
-                value=250,
-                annotation=int,
-                label="Min Structure Square Area (μm)",
-                options=dict(
-                    tooltip="Filter out structures with an area smaller than this value"
-                ),
-            ),
-            cells_per_area_um2=dict(
-                value=250,
-                annotation=int,
-                label="Cells Per Square Area (μm)",
-                options=dict(
-                    tooltip="Normalize number of cells to number of cells per area unit"
-                ),
-            ),
-            min_cell_size_um=dict(
-                value=0,
-                annotation=int,
-                label="Min Cell Area (μm)",
-                options=dict(
-                    tooltip=(
-                        "Filter out detected cells with area smaller than this value"
-                    )
-                ),
-            ),
-            max_cell_size_um=dict(
-                value=0,
-                annotation=int,
-                label="Max Cell Area (μm)",
-                options=dict(
-                    tooltip="Filter out detected cells with area larger than this value"
-                ),
-            ),
-        )
-        if values is None:
-            return
-
-        self.controller.create_excel_async(
-            Path(path),
-            min_region_area_um2=values["min_region_area_um2"],
-            cells_per_area_um2=values["cells_per_area_um2"],
-            min_cell_size_um=values["min_cell_size_um"],
-            max_cell_size_um=values["max_cell_size_um"],
-            excel_mode=values["excel_mode"],
-        )
 
     def on_import_cells_clicked(self, _=None):
         kwargs = {}
@@ -457,21 +400,18 @@ class ProjectButtons(TitledGroupBox):
 class ProjectActionsSection(TitledGroupBox):
     def __init__(
         self,
-        export_excel: Callable,
         import_cells: Callable,
         run_cell_detector: Callable,
     ):
-        self.export_excel = QPushButton("Create Results Excel")
         self.import_cells = QPushButton("Import Cell Detections")
         self.run_cell_detector = QPushButton("Run Cell Detector")
 
-        self.export_excel.clicked.connect(export_excel)
         self.import_cells.clicked.connect(import_cells)
         self.run_cell_detector.clicked.connect(run_cell_detector)
 
         super().__init__(
             title="<b>Project Actions:</b>",
-            widgets=[self.export_excel, self.run_cell_detector, self.import_cells],
+            widgets=[self.run_cell_detector, self.import_cells],
         )
 
 
@@ -554,10 +494,14 @@ class SubjectControls(NavigationControls):
         prev_callback: Callable,
         next_callback: Callable,
         add_subject_callback: Callable,
+        edit_subject_callback: Callable,
         visible: bool = True,
     ):
         self.add_subject_button = QPushButton("Add Subject")
         self.add_subject_button.clicked.connect(add_subject_callback)
+
+        self.edit_subject_button = QPushButton("Edit Subject")
+        self.edit_subject_button.clicked.connect(edit_subject_callback)
 
         super().__init__(
             title="<b>Select Subject:</b> [B/N]",
@@ -571,6 +515,7 @@ class SubjectControls(NavigationControls):
     def _build_layout(self) -> List[QWidget]:
         widgets = super()._build_layout()
         widgets.append(self.add_subject_button)
+        widgets.append(self.edit_subject_button)
         return widgets
 
     def project_opened(self, n_subjects: int):
@@ -584,6 +529,7 @@ class SubjectControls(NavigationControls):
         self.selector_widget.visible = navigation_visible
         self.next_button.setVisible(navigation_visible)
         self.prev_button.setVisible(navigation_visible)
+        self.edit_subject_button.setVisible(navigation_visible)
 
     def project_closed(self, n_subjects: int):
         self.visible = False
