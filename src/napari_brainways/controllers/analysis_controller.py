@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, List, Literal, Optional
 
 import napari
 import napari.layers
@@ -23,6 +23,11 @@ class AnalysisController(Controller):
         self.atlas_layer: napari.layers.Image | None = None
         self.annotations_layer: napari.layers.Image | None = None
         self._params: BrainwaysParams | None = None
+        self._condition: str | None = None
+        self._anova_df: pd.DataFrame | None = None
+        self._posthoc_df: pd.DataFrame | None = None
+        self._show_mode: str | None = None
+        self._contrast: str | None = None
         self.widget = AnalysisWidget(self)
 
     @property
@@ -53,8 +58,9 @@ class AnalysisController(Controller):
             rendering="attenuated_mip",
             attenuation=0.5,
         )
+        self._annotations = self.ui.project.atlas.annotation.numpy().astype(np.int32)
         self.annotations_layer = self.ui.viewer.add_labels(
-            self.ui.project.atlas.annotation.numpy().astype(np.int32),
+            self._annotations,
             name="Structures",
         )
         self.contrast_layer = self.ui.viewer.add_image(
@@ -65,27 +71,66 @@ class AnalysisController(Controller):
             colormap="inferno",
             blending="additive",
         )
+        self.points_layer = self.ui.viewer.add_points(
+            data=np.array([[0.0, 0.0]]),
+            features={"string": np.array(["-"])},
+            name="Legend",
+            size=1,
+            text={
+                "string": "{string}",
+                "anchor": "UPPER_LEFT",
+                "color": "cyan",
+            },
+        )
+
+        self.atlas_layer.mouse_move_callbacks.append(self.on_mouse_move)
         self.annotations_layer.mouse_move_callbacks.append(self.on_mouse_move)
+        self.contrast_layer.mouse_move_callbacks.append(self.on_mouse_move)
+        self.points_layer.mouse_move_callbacks.append(self.on_mouse_move)
+
         self._is_open = True
 
     def on_mouse_move(self, _layer, event):
-        struct_id = self.annotations_layer.get_value(event.position, world=True)
+        _ = self.annotations_layer.extent
+        data_position = self.annotations_layer.world_to_data(event.position)
+        data_position = tuple(int(round(c)) for c in data_position)
+        if all(0 <= c < s for c, s in zip(data_position, self._annotations.shape)):
+            struct_id = self._annotations[data_position]
+        else:
+            struct_id = 0
+
+        string = ""
+
         if struct_id and struct_id in self.pipeline.atlas.brainglobe_atlas.structures:
             struct_name = self.pipeline.atlas.brainglobe_atlas.structures[struct_id][
                 "name"
             ]
-        else:
-            struct_name = ""
-        _layer.help = struct_name
+            string = struct_name
+
+        if self.current_show_mode:
+            minus_log_pvalue = self.contrast_layer.get_value(event.position, world=True)
+            if minus_log_pvalue:
+                pvalue = np.exp(-minus_log_pvalue).round(5)
+                string += f" (p={pvalue:.5})"
+
+        self.points_layer.features = {"string": np.array([string])}
+        self.points_layer.data = np.array([event.position[1:]])
 
     def close(self) -> None:
         self.ui.viewer.layers.remove(self.atlas_layer)
         self.ui.viewer.layers.remove(self.annotations_layer)
         self.ui.viewer.layers.remove(self.contrast_layer)
+        self.ui.viewer.layers.remove(self.points_layer)
         self.atlas_layer = None
         self.annotations_layer = None
         self.contrast_layer = None
+        self.points_layer = None
         self._params = None
+        self._condition = None
+        self._anova_df = None
+        self._posthoc_df = None
+        self._show_mode = None
+        self._contrast = None
         self._is_open = False
 
     def show(
@@ -149,16 +194,50 @@ class AnalysisController(Controller):
         pvalue: float,
         multiple_comparisons_method: str,
     ):
-        anova_df, posthoc_df = self.ui.project.calculate_contrast(
+        self._anova_df, self._posthoc_df = self.ui.project.calculate_contrast(
             condition_col=condition_col,
             values_col=values_col,
             min_group_size=min_group_size,
             pvalue=pvalue,
             multiple_comparisons_method=multiple_comparisons_method,
         )
+        self._condition = condition_col
+        self.show_contrast("anova")
 
-        # self.plot_anova(anova_df)
-        self.plot_posthoc(posthoc_df, contrast="outgroup-ingroup", pvalue=0.05)
+    def show_contrast(
+        self,
+        mode: Literal["anova", "posthoc"],
+        contrast: str | None = None,
+        pvalue: float | None = None,
+    ):
+        if mode == "anova":
+            self.plot_anova(self._anova_df)
+        elif mode == "posthoc":
+            assert contrast is not None
+            assert pvalue is not None
+            self.plot_posthoc(self._posthoc_df, contrast=contrast, pvalue=pvalue)
+            self._contrast = contrast
+        else:
+            raise ValueError(f"Unknown mode {mode}")
+
+        self._show_mode = mode
+
+    @property
+    def current_condition(self) -> str | None:
+        return self._condition
+
+    @property
+    def current_show_mode(self) -> str | None:
+        return self._show_mode
+
+    @property
+    def current_contrast(self) -> str | None:
+        return self._contrast
+
+    @property
+    def possible_contrasts(self) -> List[str]:
+        result = self.ui.project.possible_contrasts(self._condition)
+        return ["-".join(c) for c in result]
 
     @property
     def params(self) -> BrainwaysParams:

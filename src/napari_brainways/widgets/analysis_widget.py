@@ -1,5 +1,5 @@
 from magicgui.widgets import request_values
-from qtpy.QtWidgets import QPushButton, QVBoxLayout, QWidget
+from qtpy.QtWidgets import QLabel, QPushButton, QVBoxLayout, QWidget
 
 
 class AnalysisWidget(QWidget):
@@ -7,19 +7,27 @@ class AnalysisWidget(QWidget):
         super().__init__()
         self.controller = controller
 
-        self.calculate_results_button = QPushButton("Calculate results")
-        self.calculate_results_button.clicked.connect(
-            self.on_run_calculate_results_clicked
-        )
+        self.label = QLabel()
+        self.set_label()
 
-        self.contrast_analysis_button = QPushButton("Run contrast analysis (ANOVA)")
-        self.contrast_analysis_button.clicked.connect(
-            self.on_run_contrast_analysis_clicked
-        )
+        calculate_results_button = QPushButton("Calculate results")
+        calculate_results_button.clicked.connect(self.on_run_calculate_results_clicked)
+
+        contrast_analysis_button = QPushButton("Run contrast analysis (ANOVA)")
+        contrast_analysis_button.clicked.connect(self.on_run_contrast_analysis_clicked)
+
+        show_anova_button = QPushButton("Show ANOVA")
+        show_anova_button.clicked.connect(self.on_show_anova_clicked)
+
+        show_posthoc_button = QPushButton("Show Posthoc")
+        show_posthoc_button.clicked.connect(self.on_show_posthoc_clicked)
 
         self.setLayout(QVBoxLayout())
-        self.layout().addWidget(self.calculate_results_button)
-        self.layout().addWidget(self.contrast_analysis_button)
+        self.layout().addWidget(self.label)
+        self.layout().addWidget(calculate_results_button)
+        self.layout().addWidget(contrast_analysis_button)
+        self.layout().addWidget(show_anova_button)
+        self.layout().addWidget(show_posthoc_button)
 
     def on_run_calculate_results_clicked(self, _=None):
         values = request_values(
@@ -122,3 +130,52 @@ class AnalysisWidget(QWidget):
             pvalue=values["pvalue"],
             multiple_comparisons_method=values["multiple_comparisons_method"],
         )
+        self.set_label()
+
+    def on_show_anova_clicked(self, _=None):
+        self.controller.show_contrast(mode="anova")
+        self.set_label()
+
+    def on_show_posthoc_clicked(self, _=None):
+        if self.controller.current_condition is None:
+            return
+
+        possible_contrasts = self.controller.possible_contrasts
+        values = request_values(
+            title="Show Posthoc",
+            contrast=dict(
+                value=possible_contrasts[0],
+                widget_type="ComboBox",
+                options=dict(choices=self.controller.possible_contrasts),
+                annotation=str,
+                label="Contrast",
+            ),
+            pvalue=dict(
+                value=0.05,
+                annotation=float,
+                label="P Value",
+                options=dict(tooltip="P value cutoff for posthoc"),
+            ),
+        )
+        if values is None:
+            return
+
+        self.controller.show_contrast(
+            mode="posthoc", contrast=values["contrast"], pvalue=values["pvalue"]
+        )
+        self.set_label()
+
+    def set_label(self):
+        if self.controller.current_show_mode is None:
+            self.label.setText(
+                "Click 'Run contrast analysis' to be able to see contrast."
+            )
+        else:
+            lines = [
+                f"Currently showing: {self.controller.current_show_mode}",
+                f"Condition: {self.controller.current_condition}",
+            ]
+            if self.controller.current_show_mode == "posthoc":
+                lines += [f"Contrast: {self.controller.current_contrast}"]
+
+            self.label.setText("\n".join(lines))
