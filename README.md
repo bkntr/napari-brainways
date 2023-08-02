@@ -21,6 +21,10 @@ and review the napari docs for plugin developers:
 https://napari.org/plugins/index.html
 -->
 
+## NOTE
+
+Brainways is in a very initial development stage, documentation and basic usage examples will be provided soon. Stay tuned!
+
 ## Preprint
 Check out our biorxiv preprint: https://www.biorxiv.org/content/10.1101/2023.05.25.542252v1
 
