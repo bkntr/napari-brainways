@@ -94,6 +94,7 @@ def mock_atlas(test_data: Tuple[np.ndarray, AtlasSlice]) -> BrainwaysAtlas:
     mock_atlas.bounding_box = Mock(return_value=(0, 0, ATLAS_SIZE, ATLAS_SIZE))
     mock_atlas.shape = (ATLAS_DEPTH, ATLAS_SIZE, ATLAS_SIZE)
     mock_atlas.reference = torch.rand(ATLAS_DEPTH, ATLAS_SIZE, ATLAS_SIZE)
+    mock_atlas.annotation = torch.rand(ATLAS_DEPTH, ATLAS_SIZE, ATLAS_SIZE)
     mock_atlas.brainglobe_atlas = Mock()
     mock_atlas.brainglobe_atlas.structure_from_coords = Mock(return_value=10)
     mock_atlas.brainglobe_atlas.resolution = (1, 2, 3)
