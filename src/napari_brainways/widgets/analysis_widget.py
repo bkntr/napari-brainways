@@ -16,6 +16,9 @@ class AnalysisWidget(QWidget):
         contrast_analysis_button = QPushButton("Run contrast analysis (ANOVA)")
         contrast_analysis_button.clicked.connect(self.on_run_contrast_analysis_clicked)
 
+        pls_analysis_button = QPushButton("Run PLS analysis")
+        pls_analysis_button.clicked.connect(self.on_run_pls_analysis_clicked)
+
         show_anova_button = QPushButton("Show ANOVA")
         show_anova_button.clicked.connect(self.on_show_anova_clicked)
 
@@ -26,6 +29,7 @@ class AnalysisWidget(QWidget):
         self.layout().addWidget(self.label)
         self.layout().addWidget(calculate_results_button)
         self.layout().addWidget(contrast_analysis_button)
+        self.layout().addWidget(pls_analysis_button)
         self.layout().addWidget(show_anova_button)
         self.layout().addWidget(show_posthoc_button)
 
@@ -129,6 +133,52 @@ class AnalysisWidget(QWidget):
             min_group_size=values["min_group_size"],
             pvalue=values["pvalue"],
             multiple_comparisons_method=values["multiple_comparisons_method"],
+        )
+        self.set_label()
+
+    def on_run_pls_analysis_clicked(self, _=None):
+        conditions = self.controller.ui.project.settings.condition_names
+        # cell_types = self.controller.ui.project.cell_types
+
+        values = request_values(
+            title="Run PLS Analysis",
+            condition_col=dict(
+                value=conditions[0],
+                widget_type="ComboBox",
+                options=dict(choices=conditions),
+                annotation=str,
+                label="Condition",
+            ),
+            values_col=dict(
+                value="cells",
+                # widget_type="ComboBox",
+                # options=dict(choices=cell_types),
+                annotation=str,
+                label="Cell Type",
+            ),
+            min_group_size=dict(
+                value=3,
+                annotation=int,
+                label="Min Group Size",
+                options=dict(
+                    tooltip="Minimal number of animals to consider an area for contrast"
+                ),
+            ),
+            alpha=dict(
+                value=0.05,
+                annotation=float,
+                label="alpha",
+                options=dict(tooltip="alpha for plots"),
+            ),
+        )
+        if values is None:
+            return
+
+        self.controller.run_pls_analysis(
+            condition_col=values["condition_col"],
+            values_col=values["values_col"],
+            min_group_size=values["min_group_size"],
+            alpha=values["alpha"],
         )
         self.set_label()
 

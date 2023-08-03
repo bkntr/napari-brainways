@@ -204,6 +204,20 @@ class AnalysisController(Controller):
         self._condition = condition_col
         self.show_contrast("anova")
 
+    def run_pls_analysis(
+        self,
+        condition_col: str,
+        values_col: str,
+        min_group_size: int,
+        alpha: float,
+    ):
+        self.ui.project.calculate_pls_analysis(
+            condition_col=condition_col,
+            values_col=values_col,
+            min_group_size=min_group_size,
+            alpha=alpha,
+        )
+
     def show_contrast(
         self,
         mode: Literal["anova", "posthoc"],
