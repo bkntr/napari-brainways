@@ -13,6 +13,7 @@ from brainways.pipeline.brainways_params import (
     AffineTransform2DParams,
     AtlasRegistrationParams,
     BrainwaysParams,
+    CellDetectorParams,
     TPSTransformParams,
 )
 from brainways.project.brainways_project import BrainwaysProject
@@ -171,6 +172,9 @@ def mock_subject_documents(
             points_src=tps_points.tolist(),
             points_dst=tps_points.tolist(),
         ),
+        cell=CellDetectorParams(
+            normalizer="clahe",
+        ),
     )
     documents = []
     for i in range(3):
@@ -212,14 +216,14 @@ def mock_project(
     )
     subject1 = project.add_subject(
         SubjectInfo(
-            name="subject1", conditions={"condition1": "c1", "condition2": "c2"}
+            name="subject1", conditions={"condition1": "c11", "condition2": "c21"}
         )
     )
     subject1.documents = mock_subject_documents
     subject1.save()
     subject2 = project.add_subject(
         SubjectInfo(
-            name="subject2", conditions={"condition1": "c1", "condition2": "c2"}
+            name="subject2", conditions={"condition1": "c12", "condition2": "c22"}
         )
     )
     subject2.documents = mock_subject_documents

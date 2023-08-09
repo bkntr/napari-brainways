@@ -26,6 +26,7 @@ class CellDetectorController(Controller):
         self.input_layer = None
         self.preview_box_layer: napari.layers.Points | None = None
         self.crop_layer: napari.layers.Image | None = None
+        self.normalized_crop_layer: napari.layers.Image | None = None
         self.cell_mask_layer: napari.layers.Image | None = None
         self._run_lock = False
         self._params = None
@@ -117,6 +118,11 @@ class CellDetectorController(Controller):
             np.zeros((100, 100), np.uint8),
             name="Preview",
         )
+        self.normalized_crop_layer = self.ui.viewer.add_image(
+            np.zeros((100, 100), np.uint8),
+            name="Preview (Normalized)",
+            visible=False,
+        )
         self.cell_mask_layer = self.ui.viewer.add_labels(
             np.zeros((10, 10), np.uint8), name="Cells"
         )
@@ -132,6 +138,7 @@ class CellDetectorController(Controller):
         self.ui.viewer.layers.remove(self.input_layer)
         self.ui.viewer.layers.remove(self.preview_box_layer)
         self.ui.viewer.layers.remove(self.crop_layer)
+        self.ui.viewer.layers.remove(self.normalized_crop_layer)
         self.ui.viewer.layers.remove(self.cell_mask_layer)
 
         self._image = None
@@ -141,6 +148,7 @@ class CellDetectorController(Controller):
         self.input_layer = None
         self.preview_box_layer = None
         self.crop_layer = None
+        self.normalized_crop_layer = None
         self.cell_mask_layer = None
         self._image_reader = None
         self._is_open = False
@@ -160,8 +168,10 @@ class CellDetectorController(Controller):
 
     def set_preview_affine(self):
         self.crop_layer.translate = self._preview_translate
-        self.cell_mask_layer.translate = self._preview_translate
         self.crop_layer.scale = self._preview_scale
+        self.normalized_crop_layer.translate = self._preview_translate
+        self.normalized_crop_layer.scale = self._preview_scale
+        self.cell_mask_layer.translate = self._preview_translate
         self.cell_mask_layer.scale = self._preview_scale
 
     def _on_cell_detector_returned(self, mask: np.ndarray):
@@ -171,10 +181,14 @@ class CellDetectorController(Controller):
             cell_detector_params = self.ui.project.settings.default_cell_detector_params
         normalizer = self.model.get_normalizer(cell_detector_params)
         if normalizer is not None:
-            self.crop_layer.data = normalizer.before(self._crop, axes=None).squeeze()
+            self.normalized_crop_layer.data = normalizer.before(
+                self._crop, axes=None
+            ).squeeze()
             update_layer_contrast_limits(
-                self.crop_layer, contrast_limits_quantiles=(0.0, 1.0)
+                self.normalized_crop_layer, contrast_limits_quantiles=(0.0, 1.0)
             )
+            self.crop_layer.visible = False
+            self.normalized_crop_layer.visible = True
         self.cell_mask_layer.data = mask
         self.cell_mask_layer.visible = True
         self.ui.viewer.layers.selection = {self.preview_box_layer}
@@ -317,6 +331,8 @@ class CellDetectorController(Controller):
 
         self._crop = highres_crop
         self.crop_layer.data = self._crop
+        self.crop_layer.visible = True
+        self.normalized_crop_layer.visible = False
         update_layer_contrast_limits(self.crop_layer)
         self.cell_mask_layer.data = np.zeros_like(self._crop, dtype=np.uint8)
         self.set_preview_affine()

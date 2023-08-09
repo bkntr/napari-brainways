@@ -74,8 +74,8 @@ def test_edit_subject(qtbot: QtBot, mock_project: BrainwaysProject, tmpdir):
     assert dialog.files_table.rowCount() == len(mock_project.subjects[1].documents)
     selected_row = dialog.files_table.selectionModel().selectedRows()[0].row()
     assert selected_row == 1
-    assert dialog.conditions_widget[0].value == "c1"
-    assert dialog.conditions_widget[1].value == "c2"
+    assert dialog.conditions_widget[0].value == "c12"
+    assert dialog.conditions_widget[1].value == "c22"
 
 
 def test_uncheck_check(create_subject_dialog: CreateSubjectDialog):
