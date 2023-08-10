@@ -18,6 +18,7 @@ from brainways.utils.cell_detection_importer.utils import (
 )
 from magicgui import magicgui
 from magicgui.widgets import Image, request_values
+from napari.utils import progress
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
     QDialog,
@@ -74,6 +75,7 @@ class WorkflowView(QWidget):
         self.step_controls = StepControls(steps=steps)
         self.progress_bar = ProgressBar()
         self.header_section = HeaderSection(progress_bar=self.progress_bar)
+        self.napari_progress: progress | None = None
         self.subject_controls = self._stack_widgets(
             [
                 self.image_navigation,
@@ -312,22 +314,29 @@ class WorkflowView(QWidget):
     def update_progress_bar(self, value: int = None, text: str = None):
         if text is not None:
             self.progress_bar.text = text
+            self.napari_progress.set_description(text)
         if value is not None:
             self.progress_bar.value = value
-        elif value is None and self.progress_bar.max > 0:
+            self.napari_progress.n = value
+            self.napari_progress.update(0)
+        elif value is None:
             self.progress_bar.value += 1
+            self.napari_progress.update()
 
-    def show_progress_bar(self, max_value: int = 0, label: str = ""):
+    def show_progress_bar(self, max_value: int | None = None, label: str | None = None):
         self.all_widgets.setEnabled(False)
         self.progress_bar.value = 0
         self.progress_bar.text = label
         self.progress_bar.max = max_value
-        self.header_section.show_progress()
-        self.scroll_area.verticalScrollBar().setValue(0)
+        if max_value:
+            self.header_section.show_progress()
+            self.scroll_area.verticalScrollBar().setValue(0)
+        self.napari_progress = progress(desc=label, total=max_value)
 
     def hide_progress_bar(self):
         self.all_widgets.setEnabled(True)
         self.header_section.hide_progress()
+        self.napari_progress.close()
 
     def update_enabled_steps(self):
         self.step_buttons.update_enabled(self.controller.current_params)

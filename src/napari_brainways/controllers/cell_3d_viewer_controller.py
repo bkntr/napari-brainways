@@ -181,7 +181,6 @@ class Cell3DViewerController(Controller):
 
     def _load_full_res_image_returned(self):
         self.show(params=self._params, image=self._image)
-        self.ui.widget.hide_progress_bar()
 
     def load_full_res_image_async(self) -> FunctionWorker:
         return self.ui.do_work_async(

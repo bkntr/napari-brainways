@@ -192,7 +192,6 @@ class CellDetectorController(Controller):
         self.cell_mask_layer.data = mask
         self.cell_mask_layer.visible = True
         self.ui.viewer.layers.selection = {self.preview_box_layer}
-        self.ui.widget.hide_progress_bar()
 
     def on_params_changed(
         self,

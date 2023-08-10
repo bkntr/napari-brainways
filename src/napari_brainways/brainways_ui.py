@@ -190,7 +190,6 @@ class BrainwaysUI(QWidget):
     def _open_step(self):
         self.current_step.open()
         self.current_step.show(self.current_params, self._image)
-        self.widget.hide_progress_bar()
         self.widget.update_enabled_steps()
         self._set_title()
 
@@ -206,7 +205,6 @@ class BrainwaysUI(QWidget):
         self.widget.on_project_changed(len(self.project.subjects))
         if len(self.project.subjects) > 0:
             self._on_subject_opened()
-        self.widget.hide_progress_bar()
 
     def _on_subject_opened(self):
         self._set_title()
@@ -217,7 +215,6 @@ class BrainwaysUI(QWidget):
         self.current_step.open()
         self.current_step.show(self.current_params, self._image)
         self.widget.update_enabled_steps()
-        self.widget.hide_progress_bar()
 
     def _on_progress_returned(self):
         self.widget.hide_progress_bar()
@@ -404,10 +401,6 @@ class BrainwaysUI(QWidget):
         progress_max_value: int = 0,
         **kwargs,
     ) -> FunctionWorker:
-        return_callback = return_callback or self._on_work_returned
-        yield_callback = yield_callback or self._on_work_yielded
-        error_callback = error_callback or self._on_work_error
-
         self.widget.show_progress_bar(
             label=progress_label, max_value=progress_max_value
         )
@@ -421,21 +414,31 @@ class BrainwaysUI(QWidget):
             )
 
         worker = create_worker(function, **kwargs)
-        worker.returned.connect(return_callback or self._on_work_returned)
+
+        worker.returned.connect(self._on_work_returned)
+        if return_callback is not None:
+            worker.returned.connect(return_callback)
         if isinstance(worker, GeneratorWorker):
-            worker.yielded.connect(yield_callback or self._on_work_yielded)
-        worker.errored.connect(error_callback or self._on_work_error)
+            worker.yielded.connect(self._on_work_yielded)
+            if yield_callback is not None:
+                worker.returned.connect(yield_callback)
+        worker.errored.connect(self._on_work_error)
+        if error_callback is not None:
+            worker.returned.connect(error_callback)
         worker.start()
         return worker
 
     def _do_work_sync(
         self,
         function: Callable,
-        return_callback: Callable,
-        yield_callback: Callable,
-        error_callback: Callable,
+        return_callback: Optional[Callable] = None,
+        yield_callback: Optional[Callable] = None,
+        error_callback: Optional[Callable] = None,
         **kwargs,
     ):
+        return_callback = return_callback or self._on_work_returned
+        yield_callback = yield_callback or self._on_work_yielded
+        error_callback = error_callback or self._on_work_error
         try:
             if inspect.isgeneratorfunction(function):
                 gen = function(**kwargs)
@@ -463,17 +466,16 @@ class BrainwaysUI(QWidget):
             error_callback()
             raise
 
-    def _on_work_returned(self):
+    def _on_work_returned(self, **kwargs):
         self.widget.hide_progress_bar()
 
-    def _on_work_yielded(self, text: Optional[str] = None, value: Optional[int] = None):
+    def _on_work_yielded(
+        self, text: Optional[str] = None, value: Optional[int] = None, **kwargs
+    ):
         self.widget.update_progress_bar(value=value, text=text)
 
-    def _on_work_error(self):
+    def _on_work_error(self, **kwargs):
         self.widget.hide_progress_bar()
-
-    def _on_progress(self) -> None:
-        self.widget.progress_bar.value += 1
 
     @property
     def _current_document_index(self):
