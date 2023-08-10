@@ -10,21 +10,18 @@ from brainways.pipeline.affine_2d import AffineTransform2DParams
 from brainways.pipeline.brainways_params import TPSTransformParams
 from brainways.project.info_classes import BrainwaysParams
 from pytest import fixture
-from pytestqt.qtbot import QtBot
 
 from napari_brainways.brainways_ui import BrainwaysUI
 from napari_brainways.controllers.tps_controller import TpsController
-from napari_brainways.test_utils import randomly_modified_params, worker_join
+from napari_brainways.test_utils import randomly_modified_params
 
 
 @fixture
-def app_on_tps(
-    qtbot: QtBot, opened_app: BrainwaysUI
-) -> Tuple[BrainwaysUI, TpsController]:
+def app_on_tps(opened_app: BrainwaysUI) -> Tuple[BrainwaysUI, TpsController]:
     tps_step_index = [
         isinstance(step, TpsController) for step in opened_app.steps
     ].index(True)
-    opened_app.set_step_index_async(tps_step_index, run_async=False)
+    opened_app.set_step_index_async(tps_step_index)
     controller: TpsController = opened_app.current_step
     return opened_app, controller
 
@@ -45,32 +42,30 @@ def elastix_mock(
 
 
 @pytest.mark.skip
-def test_run_elastix(qtbot: QtBot, app_on_tps: Tuple[BrainwaysUI, TpsController]):
+def test_run_elastix(app_on_tps: Tuple[BrainwaysUI, TpsController]):
     app, controller = app_on_tps
-    worker_join(controller.run_elastix_async(), qtbot)
+    controller.run_elastix_async()
 
 
 def test_run_elastix_updates_params(
-    qtbot: QtBot,
     app_on_tps: Tuple[BrainwaysUI, TpsController],
     elastix_mock,
 ):
     app, controller = app_on_tps
     expected = np.array(controller.params.tps.points_dst).copy()
     expected[0, 0] -= 1
-    worker_join(controller.run_elastix_async(), qtbot)
+    controller.run_elastix_async()
     numpy.testing.assert_allclose(controller.params.tps.points_dst, expected, atol=0.1)
 
 
 def test_run_elastix_updates_ui(
-    qtbot: QtBot,
     app_on_tps: Tuple[BrainwaysUI, TpsController],
     elastix_mock,
 ):
     app, controller = app_on_tps
     expected = controller.params.tps.points_dst.copy()
     expected[0][0] -= 1
-    worker_join(controller.run_elastix_async(), qtbot)
+    controller.run_elastix_async()
     numpy.testing.assert_allclose(
         controller.points_atlas_layer.data, np.array(expected)[:, ::-1], atol=0.1
     )
@@ -78,7 +73,6 @@ def test_run_elastix_updates_ui(
 
 @pytest.mark.parametrize("hemisphere", ["left", "right", "both"])
 def test_default_tps_params_uses_hemispheres(
-    qtbot: QtBot,
     app_on_tps: Tuple[BrainwaysUI, TpsController],
     hemisphere: str,
 ):
@@ -103,7 +97,6 @@ def test_default_tps_params_uses_hemispheres(
 
 
 def test_on_points_changed(
-    qtbot: QtBot,
     app_on_tps: Tuple[BrainwaysUI, TpsController],
 ):
     app, controller = app_on_tps
@@ -115,7 +108,6 @@ def test_on_points_changed(
 
 
 def test_on_points_changed_keeps_params_types(
-    qtbot: QtBot,
     app_on_tps: Tuple[BrainwaysUI, TpsController],
 ):
     app, controller = app_on_tps
@@ -127,10 +119,7 @@ def test_on_points_changed_keeps_params_types(
     assert isinstance(controller.params.tps.points_dst[0][0], float)
 
 
-def test_reset_params(
-    qtbot: QtBot,
-    app_on_tps: Tuple[BrainwaysUI, TpsController],
-):
+def test_reset_params(app_on_tps: Tuple[BrainwaysUI, TpsController]):
     app, controller = app_on_tps
     default_tps_params = controller.default_params(controller._image, controller.params)
     controller._params = randomly_modified_params(controller.params)
@@ -139,10 +128,7 @@ def test_reset_params(
     assert controller.params.tps == default_tps_params.tps
 
 
-def test_previous_params(
-    qtbot: QtBot,
-    app_on_tps: Tuple[BrainwaysUI, TpsController],
-):
+def test_previous_params(app_on_tps: Tuple[BrainwaysUI, TpsController]):
     app, controller = app_on_tps
     previous_params = controller.params
     next_params = replace(
@@ -155,10 +141,7 @@ def test_previous_params(
     assert controller.params == previous_params
 
 
-def test_previous_next_params(
-    qtbot: QtBot,
-    app_on_tps: Tuple[BrainwaysUI, TpsController],
-):
+def test_previous_next_params(app_on_tps: Tuple[BrainwaysUI, TpsController]):
     app, controller = app_on_tps
     next_params = replace(
         controller.params,
@@ -170,10 +153,7 @@ def test_previous_next_params(
     assert controller.params == next_params
 
 
-def test_previous_next_previous_params(
-    qtbot: QtBot,
-    app_on_tps: Tuple[BrainwaysUI, TpsController],
-):
+def test_previous_next_previous_params(app_on_tps: Tuple[BrainwaysUI, TpsController]):
     app, controller = app_on_tps
     previous_params = controller.params
     next_params = replace(
@@ -188,8 +168,7 @@ def test_previous_next_previous_params(
 
 
 def test_previous_params_empty_does_nothing(
-    qtbot: QtBot,
-    app_on_tps: Tuple[BrainwaysUI, TpsController],
+    app_on_tps: Tuple[BrainwaysUI, TpsController]
 ):
     app, controller = app_on_tps
     previous_params = controller.params
@@ -197,10 +176,7 @@ def test_previous_params_empty_does_nothing(
     assert controller.params == previous_params
 
 
-def test_next_params_empty_does_nothing(
-    qtbot: QtBot,
-    app_on_tps: Tuple[BrainwaysUI, TpsController],
-):
+def test_next_params_empty_does_nothing(app_on_tps: Tuple[BrainwaysUI, TpsController]):
     app, controller = app_on_tps
     previous_params = controller.params
     controller.next_params()
@@ -208,8 +184,7 @@ def test_next_params_empty_does_nothing(
 
 
 def test_change_params_empties_next_params(
-    qtbot: QtBot,
-    app_on_tps: Tuple[BrainwaysUI, TpsController],
+    app_on_tps: Tuple[BrainwaysUI, TpsController]
 ):
     app, controller = app_on_tps
     next_params1 = replace(

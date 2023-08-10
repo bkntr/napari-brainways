@@ -1,4 +1,5 @@
 import shutil
+from dataclasses import replace
 from pathlib import Path
 from typing import Tuple
 from unittest.mock import Mock
@@ -12,11 +13,10 @@ from brainways.project.brainways_subject import BrainwaysSubject
 from brainways.project.info_classes import SliceInfo
 from brainways.utils.io_utils import ImagePath
 from pytest import fixture
-from pytestqt.qtbot import QtBot
 
 from napari_brainways.brainways_ui import BrainwaysUI
 from napari_brainways.controllers.base import Controller
-from napari_brainways.test_utils import randomly_modified_params, worker_join
+from napari_brainways.test_utils import randomly_modified_params
 
 
 @fixture(params=[0, 1])
@@ -57,15 +57,24 @@ def test_app_init(app: BrainwaysUI):
     pass
 
 
-def test_steps_are_loading(qtbot: QtBot, opened_app: BrainwaysUI, step: Controller):
-    opened_app.set_step_index_async(opened_app.steps.index(step), run_async=False)
+def test_steps_are_loading(opened_app: BrainwaysUI, step: Controller):
+    opened_app.set_step_index_async(opened_app.steps.index(step))
+
+
+def test_steps_are_loading_for_new_subject(opened_app: BrainwaysUI):
+    opened_app.current_document = replace(
+        opened_app.current_document, params=BrainwaysParams()
+    )
+    opened_app.set_step_index_async(0, force=True, save_subject=False)
+    for step_index in range(len(opened_app.steps)):
+        opened_app.set_step_index_async(step_index)
 
 
 def test_next_image_prev_image_keeps_changed_params(
-    qtbot: QtBot, opened_app: BrainwaysUI, step: Controller
+    opened_app: BrainwaysUI, step: Controller
 ):
     # set step
-    opened_app.set_step_index_async(opened_app.steps.index(step), run_async=False)
+    opened_app.set_step_index_async(opened_app.steps.index(step))
 
     # modify params
     current_params = opened_app.current_params
@@ -74,16 +83,14 @@ def test_next_image_prev_image_keeps_changed_params(
     step.show(first_modification)
 
     # go next image
-    worker = opened_app.next_image()
-    worker_join(worker, qtbot)
+    opened_app.next_image()
 
     # modify params again
     second_modification = randomly_modified_params(opened_app.current_params)
     step.show(second_modification)
 
     # go prev image
-    worker = opened_app.prev_image()
-    worker_join(worker, qtbot)
+    opened_app.prev_image()
 
     # assert that params of first image didn't change
     opened_app.persist_current_params()
@@ -91,97 +98,82 @@ def test_next_image_prev_image_keeps_changed_params(
 
 
 @pytest.mark.skip
-def test_run_workflow(qtbot: QtBot, opened_app: BrainwaysUI):
-    worker = opened_app.run_workflow_async()
-    worker_join(worker, qtbot)
+def test_run_workflow(opened_app: BrainwaysUI):
+    opened_app.run_workflow_async()
 
 
 def test_open_project(
-    qtbot: QtBot,
     app: BrainwaysUI,
     mock_project: BrainwaysProject,
 ):
     assert app.project is None
-    worker = app.open_project_async(mock_project.path)
-    worker_join(worker, qtbot)
+    app.open_project_async(mock_project.path)
     assert isinstance(app.project, BrainwaysProject)
     assert isinstance(app.current_subject, BrainwaysSubject)
 
 
 def test_open_project_without_subjects(
-    qtbot: QtBot, app: BrainwaysUI, mock_project: BrainwaysProject
+    app: BrainwaysUI, mock_project: BrainwaysProject
 ):
     for subject_dir in mock_project.path.parent.glob("subject*"):
         shutil.rmtree(subject_dir)
     assert app.project is None
-    worker = app.open_project_async(mock_project.path)
-    worker_join(worker, qtbot)
+    app.open_project_async(mock_project.path)
     assert isinstance(app.project, BrainwaysProject)
     assert app._current_valid_subject_index is None
 
 
 def test_set_subject_index_async(
-    qtbot: QtBot,
     opened_app: BrainwaysUI,
     subject_index: int,
 ):
-    worker = opened_app.set_subject_index_async(subject_index)
-    worker_join(worker, qtbot)
+    opened_app.set_subject_index_async(subject_index)
     assert opened_app.current_subject == opened_app.project.subjects[subject_index]
 
 
 @pytest.mark.skip
 def test_save_load_subject(
-    qtbot: QtBot,
     opened_app: BrainwaysUI,
     step_index: int,
     image_index: int,
     tmpdir,
 ):
-    opened_app.set_step_index_async(step_index, run_async=False)
-    worker = opened_app.set_document_index_async(image_index)
-    worker_join(worker, qtbot)
+    opened_app.set_step_index_async(step_index)
+    opened_app.set_document_index_async(image_index)
     save_path = Path(tmpdir) / "test"
     docs = opened_app.current_subject.documents
     opened_app.save_subject()
     opened_app.current_subject.documents = []
-    worker = opened_app.open_subject_async(save_path)
-    worker_join(worker, qtbot)
+    opened_app.open_subject_async(save_path)
     assert opened_app.current_subject.documents == docs
 
 
 @pytest.mark.skip
 def test_save_after_run_workflow(
-    qtbot: QtBot,
     opened_app: BrainwaysUI,
     tmpdir,
 ):
-    worker = opened_app.run_workflow_async()
-    worker_join(worker, qtbot)
+    opened_app.run_workflow_async()
     save_path = Path(tmpdir) / "test"
     docs = opened_app.current_subject.documents
     opened_app.save_subject()
     opened_app.all_documents = []
-    worker = opened_app.open_subject_async(save_path)
-    worker_join(worker, qtbot)
+    opened_app.open_subject_async(save_path)
     assert opened_app.current_subject.documents == docs
 
 
 @fixture
 def app_batch_run_model(
-    qtbot: QtBot,
     opened_app: BrainwaysUI,
     step: Controller,
     step_index: int,
     image_index: int,
 ) -> Tuple[BrainwaysUI, BrainwaysParams]:
-    opened_app.set_step_index_async(step_index, run_async=False)
-    worker = opened_app.set_document_index_async(image_index)
-    worker_join(worker, qtbot)
+    opened_app.set_step_index_async(step_index)
+    opened_app.set_document_index_async(image_index)
     modified_params = randomly_modified_params(opened_app.current_params)
     step.run_model = Mock(return_value=modified_params)
-    worker = opened_app.batch_run_model_async()
-    worker_join(worker, qtbot)
+    opened_app.batch_run_model_async()
     return opened_app, modified_params
 
 
@@ -230,27 +222,27 @@ def test_export_cells_to_csv(opened_app: BrainwaysUI, tmpdir):
     assert df.shape == (2, 2)
 
 
-def test_autosave_on_set_image_index(qtbot: QtBot, opened_app: BrainwaysUI):
+def test_autosave_on_set_image_index(opened_app: BrainwaysUI):
     opened_app.save_subject = Mock()
-    worker_join(opened_app.set_document_index_async(image_index=1), qtbot)
+    opened_app.set_document_index_async(image_index=1)
     opened_app.save_subject.assert_called_once()
 
 
-def test_autosave_on_set_step_index(qtbot: QtBot, opened_app: BrainwaysUI):
+def test_autosave_on_set_step_index(opened_app: BrainwaysUI):
     opened_app.save_subject = Mock()
-    opened_app.set_step_index_async(step_index=1, run_async=False)
+    opened_app.set_step_index_async(step_index=1)
     opened_app.save_subject.assert_called_once()
 
 
 @pytest.mark.skip
-def test_autosave_on_close(qtbot: QtBot, opened_app: BrainwaysUI):
+def test_autosave_on_close(opened_app: BrainwaysUI):
     opened_app.save_subject = Mock()
     opened_app.viewer.close()
     opened_app.save_subject.assert_called_once()
 
 
 @pytest.mark.skip
-def test_import_cells(qtbot: QtBot, opened_app: BrainwaysUI, tmpdir):
+def test_import_cells(opened_app: BrainwaysUI, tmpdir):
     # for document in opened_app.documents:
     #     assert document.cells is None
 
@@ -264,8 +256,7 @@ def test_import_cells(qtbot: QtBot, opened_app: BrainwaysUI, tmpdir):
         )
         df = pd.DataFrame({"centroid-0": cells[i, :, 0], "centroid-1": cells[i, :, 1]})
         df.to_csv(root / csv_filename)
-    worker = opened_app.import_cells_async(root)
-    worker_join(worker, qtbot)
+    opened_app.import_cells_async(root)
 
     for i, document in enumerate(opened_app.documents):
         assert np.allclose(document.cells, cells[i])

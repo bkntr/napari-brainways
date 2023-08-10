@@ -5,20 +5,17 @@ from brainways.pipeline.atlas_registration import AtlasRegistrationParams
 from brainways.project.info_classes import BrainwaysParams
 from brainways.utils.test_utils import randomly_modified_params
 from pytest import fixture
-from pytestqt.qtbot import QtBot
 
 from napari_brainways.brainways_ui import BrainwaysUI
 from napari_brainways.controllers.affine_2d_controller import Affine2DController
 
 
 @fixture
-def app_on_affine_2d(
-    qtbot: QtBot, opened_app: BrainwaysUI
-) -> Tuple[BrainwaysUI, Affine2DController]:
+def app_on_affine_2d(opened_app: BrainwaysUI) -> Tuple[BrainwaysUI, Affine2DController]:
     affine_2d_step_index = [
         isinstance(step, Affine2DController) for step in opened_app.steps
     ].index(True)
-    opened_app.set_step_index_async(affine_2d_step_index, run_async=False)
+    opened_app.set_step_index_async(affine_2d_step_index)
     controller: Affine2DController = opened_app.current_step
     params = controller.params
     params = replace(params, affine=replace(params.affine, angle=10))
@@ -26,9 +23,7 @@ def app_on_affine_2d(
     return opened_app, controller
 
 
-def test_reset_params(
-    qtbot: QtBot, app_on_affine_2d: Tuple[BrainwaysUI, Affine2DController]
-):
+def test_reset_params(app_on_affine_2d: Tuple[BrainwaysUI, Affine2DController]):
     app, controller = app_on_affine_2d
     assert controller.params.affine.angle == 10
     controller.reset_params()
@@ -36,7 +31,7 @@ def test_reset_params(
 
 
 def test_reset_params_updates_ui(
-    qtbot: QtBot, app_on_affine_2d: Tuple[BrainwaysUI, Affine2DController]
+    app_on_affine_2d: Tuple[BrainwaysUI, Affine2DController]
 ):
     app, controller = app_on_affine_2d
     assert controller.widget.params_widget.angle.value == 10
@@ -44,9 +39,7 @@ def test_reset_params_updates_ui(
     assert controller.widget.params_widget.angle.value == 0
 
 
-def test_update_params(
-    qtbot: QtBot, app_on_affine_2d: Tuple[BrainwaysUI, Affine2DController]
-):
+def test_update_params(app_on_affine_2d: Tuple[BrainwaysUI, Affine2DController]):
     app, controller = app_on_affine_2d
     params = controller.params
     modified_params = randomly_modified_params(controller.params)
@@ -55,9 +48,7 @@ def test_update_params(
     assert controller.params == modified_params
 
 
-def test_on_params_changed(
-    qtbot: QtBot, app_on_affine_2d: Tuple[BrainwaysUI, Affine2DController]
-):
+def test_on_params_changed(app_on_affine_2d: Tuple[BrainwaysUI, Affine2DController]):
     app, controller = app_on_affine_2d
     params = controller.params
     modified_affine_params = randomly_modified_params(controller.params).affine

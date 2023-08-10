@@ -23,11 +23,9 @@ from brainways.utils.image import ImageSizeHW
 from brainways.utils.io_utils import ImagePath
 from PIL import Image
 from pytest import fixture
-from pytestqt.qtbot import QtBot
 from qtpy.QtWidgets import QApplication
 
 from napari_brainways.brainways_ui import BrainwaysUI
-from napari_brainways.test_utils import worker_join
 
 
 @fixture(scope="session", autouse=True)
@@ -66,18 +64,17 @@ def app(
 ) -> BrainwaysUI:
     monkeypatch.setattr(BrainwaysAtlas, "load", Mock(return_value=mock_atlas))
     app = BrainwaysUI(napari_viewer)
+    app.async_disabled = True
     yield app
 
 
 @fixture
 def opened_app(
-    qtbot: QtBot,
     app: BrainwaysUI,
     test_data: Tuple[np.ndarray, AtlasSlice],
     mock_project: BrainwaysProject,
 ):
-    worker = app.open_project_async(mock_project.path)
-    worker_join(worker, qtbot)
+    app.open_project_async(mock_project.path)
     return app
 
 

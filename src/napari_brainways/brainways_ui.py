@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 from dataclasses import replace
 from pathlib import Path
 from typing import Callable, Optional, Tuple
@@ -63,6 +64,8 @@ class BrainwaysUI(QWidget):
 
         self._set_layout()
 
+        self.async_disabled = False
+
     def _set_layout(self):
         layout = QVBoxLayout()
         self.setLayout(layout)
@@ -121,7 +124,7 @@ class BrainwaysUI(QWidget):
 
     def run_workflow_async(self) -> FunctionWorker:
         raise NotImplementedError()
-        # self.set_step_index_async(len(self.steps) - 1, run_async=False)
+        # self.set_step_index_async(len(self.steps) - 1)
         # view_images = ViewImages(atlas=self._atlas)
         # self.cell_viewer_controller.open(self._atlas)
         # self.widget.show_progress_bar(len(self.documents))
@@ -244,12 +247,9 @@ class BrainwaysUI(QWidget):
 
         self._current_valid_subject_index = subject_index
         self.widget.set_subject_index(subject_index + 1)
-        self.widget.show_progress_bar()
-
-        worker = create_worker(self._open_image)
-        worker.returned.connect(self._on_subject_opened)
-        worker.start()
-        return worker
+        return self.do_work_async(
+            self._open_image, return_callback=self._on_subject_opened
+        )
 
     def set_document_index_async(
         self,
@@ -277,12 +277,7 @@ class BrainwaysUI(QWidget):
             self.widget.set_step(self._current_step_index)
 
         self.widget.set_image_index(image_index + 1)
-        self.widget.show_progress_bar()
-
-        worker = create_worker(self._open_image)
-        worker.returned.connect(self._open_step)
-        worker.start()
-        return worker
+        return self.do_work_async(self._open_image, return_callback=self._open_step)
 
     def prev_subject(self, _=None) -> FunctionWorker | None:
         return self.set_subject_index_async(
@@ -315,7 +310,6 @@ class BrainwaysUI(QWidget):
         step_index: int,
         force: bool = False,
         save_subject: bool = True,
-        run_async: bool = True,
     ) -> FunctionWorker | None:
         if not force and self._current_step_index == step_index:
             return
@@ -324,15 +318,9 @@ class BrainwaysUI(QWidget):
         self.current_step.close()
         self.widget.set_step(step_index)
         self._current_step_index = step_index
-        if run_async:
-            worker = create_worker(self._load_step_default_params)
-            worker.returned.connect(self._open_step)
-            worker.start()
-            self.widget.show_progress_bar()
-            return worker
-        else:
-            self._load_step_default_params()
-            self._open_step()
+        return self.do_work_async(
+            self._load_step_default_params, return_callback=self._open_step
+        )
 
     def prev_step(self, _=None) -> FunctionWorker | None:
         return self.set_step_index_async(max(self._current_step_index - 1, 0))
@@ -416,9 +404,22 @@ class BrainwaysUI(QWidget):
         progress_max_value: int = 0,
         **kwargs,
     ) -> FunctionWorker:
+        return_callback = return_callback or self._on_work_returned
+        yield_callback = yield_callback or self._on_work_yielded
+        error_callback = error_callback or self._on_work_error
+
         self.widget.show_progress_bar(
             label=progress_label, max_value=progress_max_value
         )
+        if self.async_disabled:
+            return self._do_work_sync(
+                function=function,
+                return_callback=return_callback,
+                yield_callback=yield_callback,
+                error_callback=error_callback,
+                **kwargs,
+            )
+
         worker = create_worker(function, **kwargs)
         worker.returned.connect(return_callback or self._on_work_returned)
         if isinstance(worker, GeneratorWorker):
@@ -426,6 +427,41 @@ class BrainwaysUI(QWidget):
         worker.errored.connect(error_callback or self._on_work_error)
         worker.start()
         return worker
+
+    def _do_work_sync(
+        self,
+        function: Callable,
+        return_callback: Callable,
+        yield_callback: Callable,
+        error_callback: Callable,
+        **kwargs,
+    ):
+        try:
+            if inspect.isgeneratorfunction(function):
+                gen = function(**kwargs)
+                try:
+                    while True:
+                        item = next(gen)
+                        if item is None:
+                            yield_callback()
+                        elif isinstance(item, (list, tuple)):
+                            yield_callback(*item)
+                        else:
+                            yield_callback(item)
+                except StopIteration as e:
+                    result = e.value
+            else:
+                result = function(**kwargs)
+
+            if result is None:
+                return_callback()
+            elif isinstance(result, (list, tuple)):
+                return_callback(*result)
+            else:
+                return_callback(result)
+        except Exception:
+            error_callback()
+            raise
 
     def _on_work_returned(self):
         self.widget.hide_progress_bar()

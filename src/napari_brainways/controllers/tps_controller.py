@@ -191,7 +191,10 @@ class TpsController(Controller):
         xs, ys = np.meshgrid(np.linspace(x, x + w, nx), np.linspace(y, y + h, ny))
         points = np.stack([xs, ys], axis=-1).reshape(-1, 2).astype(np.float32)
 
-        return replace(params, tps=TPSTransformParams(points.copy(), points.copy()))
+        return replace(
+            params,
+            tps=TPSTransformParams(points.copy().tolist(), points.copy().tolist()),
+        )
 
     def set_points_mode_add(self, _=None):
         self.ui.viewer.layers.selection = {self.points_atlas_layer}
