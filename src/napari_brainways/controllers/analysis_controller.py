@@ -2,12 +2,17 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, List, Optional
 
+import matplotlib.pyplot as plt
 import napari
 import napari.layers
 import numpy as np
 import pandas as pd
+import scipy.stats
 from brainways.pipeline.brainways_params import BrainwaysParams
+from matplotlib.backends.backend_qt5agg import FigureCanvas
+from matplotlib.figure import Figure
 from napari.qt.threading import FunctionWorker
+from napari.utils.colormaps.colormap import Colormap
 
 from napari_brainways.controllers.base import Controller
 from napari_brainways.utils import update_layer_contrast_limits
@@ -57,18 +62,26 @@ class AnalysisController(Controller):
             name="Atlas",
             rendering="attenuated_mip",
             attenuation=0.5,
+            visible=False,
         )
         self._annotations = self.ui.project.atlas.annotation.numpy().astype(np.int32)
+        colors = {i: "white" for i in self.ui.project.atlas.brainglobe_atlas.structures}
+        colors[0] = "black"
         self.annotations_layer = self.ui.viewer.add_labels(
             self._annotations,
             name="Structures",
+            # color=colors,
+            opacity=1.0,
         )
+        self.annotations_layer.contour = 1
+        mpl_colors = plt.get_cmap("hot")(np.linspace(0, 1, 256))
+        colormap = Colormap(name="hot", display_name="hot", colors=mpl_colors)
         self.contrast_layer = self.ui.viewer.add_image(
             np.zeros_like(self.ui.project.atlas.annotation),
             name="Contrast",
             rendering="attenuated_mip",
             attenuation=0.5,
-            colormap="inferno",
+            colormap=colormap,
             blending="additive",
         )
 
@@ -101,9 +114,9 @@ class AnalysisController(Controller):
             string = struct_name
 
         if self.current_show_mode:
-            minus_log_pvalue = self.contrast_layer.get_value(event.position, world=True)
-            if minus_log_pvalue:
-                pvalue = np.exp(-minus_log_pvalue).round(5)
+            tvalue = self.contrast_layer.get_value(event.position, world=True)
+            if tvalue:
+                pvalue = 1 - scipy.stats.norm.cdf(tvalue).round(5)
                 string += f" (p={pvalue:.5})"
 
         self.ui.viewer.text_overlay.text = string
@@ -161,12 +174,32 @@ class AnalysisController(Controller):
         ].iterrows():
             struct_id = atlas.brainglobe_atlas.structures[structure]["id"]
             struct_mask = annotation == struct_id
-            annotation_anova[struct_mask] = -np.log(row[contrast])
+            tvalue = scipy.stats.norm.ppf(1 - row[contrast])
+            annotation_anova[struct_mask] = tvalue
         self.contrast_layer.data = annotation_anova
+        self.annotations_layer.data[annotation_anova == 0] = 0
         update_layer_contrast_limits(self.contrast_layer)
 
+        import matplotlib as mpl
+
+        figure = Figure(figsize=(1, 8))
+        mpl_widget = FigureCanvas()
+        ax = mpl_widget.figure.subplots()
+        self.ui.viewer.window.add_dock_widget(mpl_widget)
+        norm = mpl.colors.Normalize(
+            vmin=self.contrast_layer.contrast_limits[0],
+            vmax=self.contrast_layer.contrast_limits[1],
+        )
+        cbar = figure.colorbar(
+            mpl.cm.ScalarMappable(norm=norm, cmap="hot"),
+            ax=ax,
+            pad=0.05,
+            fraction=1,
+        )
+        ax.axis("off")
+        cbar.set_label("t score")
+
         self.contrast_layer.visible = True
-        self.annotations_layer.visible = False
 
     def run_calculate_results_async(
         self,
@@ -237,6 +270,21 @@ class AnalysisController(Controller):
             alpha=alpha,
             n_perm=n_perm,
             n_boot=n_boot,
+        )
+
+    def run_network_analysis_async(
+        self,
+        condition_col: str,
+        values_col: str,
+        min_group_size: int,
+        alpha: float,
+    ):
+        self.ui.do_work_async(
+            self.ui.project.calculate_network_graph,
+            condition_col=condition_col,
+            values_col=values_col,
+            min_group_size=min_group_size,
+            alpha=alpha,
         )
 
     @property
