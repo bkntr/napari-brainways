@@ -1,9 +1,14 @@
+from typing import TYPE_CHECKING
+
 from magicgui.widgets import request_values
 from qtpy.QtWidgets import QLabel, QPushButton, QVBoxLayout, QWidget
 
+if TYPE_CHECKING:
+    from napari_brainways.controllers.analysis_controller import AnalysisController
+
 
 class AnalysisWidget(QWidget):
-    def __init__(self, controller):
+    def __init__(self, controller: "AnalysisController"):
         super().__init__()
         self.controller = controller
 

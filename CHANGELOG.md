@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.1.9]
+### Added
+ - Network graph analysis
+
 ### Changed
  - Use napari's built-in progress bar
  - Contrast analysis/PLS analysis run as async to keep GUI alive
