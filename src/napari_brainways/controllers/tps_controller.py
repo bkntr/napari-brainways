@@ -229,7 +229,6 @@ class TpsController(Controller):
 
     def _run_elastix_returned(self, params: BrainwaysParams):
         self.show(params, from_ui=True)
-        self.ui.widget.hide_progress_bar()
 
     def run_elastix_async(self) -> FunctionWorker:
         return self.ui.do_work_async(

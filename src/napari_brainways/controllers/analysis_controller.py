@@ -1,13 +1,16 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List, Literal, Optional
+from typing import TYPE_CHECKING, List, Optional
 
+import matplotlib.pyplot as plt
 import napari
 import napari.layers
 import numpy as np
 import pandas as pd
+import scipy.stats
 from brainways.pipeline.brainways_params import BrainwaysParams
 from napari.qt.threading import FunctionWorker
+from napari.utils.colormaps.colormap import Colormap
 
 from napari_brainways.controllers.base import Controller
 from napari_brainways.utils import update_layer_contrast_limits
@@ -57,36 +60,37 @@ class AnalysisController(Controller):
             name="Atlas",
             rendering="attenuated_mip",
             attenuation=0.5,
+            visible=False,
         )
         self._annotations = self.ui.project.atlas.annotation.numpy().astype(np.int32)
+        colors = {i: "white" for i in self.ui.project.atlas.brainglobe_atlas.structures}
+        colors[0] = "black"
         self.annotations_layer = self.ui.viewer.add_labels(
             self._annotations,
             name="Structures",
+            # color=colors,
+            opacity=1.0,
         )
+        self.annotations_layer.contour = 1
+        mpl_colors = plt.get_cmap("hot")(np.linspace(0, 1, 256))
+        colormap = Colormap(name="hot", display_name="hot", colors=mpl_colors)
         self.contrast_layer = self.ui.viewer.add_image(
             np.zeros_like(self.ui.project.atlas.annotation),
             name="Contrast",
             rendering="attenuated_mip",
             attenuation=0.5,
-            colormap="inferno",
+            colormap=colormap,
             blending="additive",
-        )
-        self.points_layer = self.ui.viewer.add_points(
-            data=np.array([[0.0, 0.0]]),
-            features={"string": np.array(["-"])},
-            name="Legend",
-            size=1,
-            text={
-                "string": "{string}",
-                "anchor": "UPPER_LEFT",
-                "color": "cyan",
-            },
         )
 
         self.atlas_layer.mouse_move_callbacks.append(self.on_mouse_move)
         self.annotations_layer.mouse_move_callbacks.append(self.on_mouse_move)
         self.contrast_layer.mouse_move_callbacks.append(self.on_mouse_move)
-        self.points_layer.mouse_move_callbacks.append(self.on_mouse_move)
+
+        self.ui.viewer.text_overlay.visible = True
+        self.ui.viewer.text_overlay.font_size = 16
+        self.ui.viewer.text_overlay.color = (0.0, 0.8, 0.0, 1.0)
+        self.ui.viewer.text_overlay.position = "top_center"
 
         self._is_open = True
 
@@ -108,23 +112,20 @@ class AnalysisController(Controller):
             string = struct_name
 
         if self.current_show_mode:
-            minus_log_pvalue = self.contrast_layer.get_value(event.position, world=True)
-            if minus_log_pvalue:
-                pvalue = np.exp(-minus_log_pvalue).round(5)
+            tvalue = self.contrast_layer.get_value(event.position, world=True)
+            if tvalue:
+                pvalue = 1 - scipy.stats.norm.cdf(tvalue).round(5)
                 string += f" (p={pvalue:.5})"
 
-        self.points_layer.features = {"string": np.array([string])}
-        self.points_layer.data = np.array([event.position[1:]])
+        self.ui.viewer.text_overlay.text = string
 
     def close(self) -> None:
         self.ui.viewer.layers.remove(self.atlas_layer)
         self.ui.viewer.layers.remove(self.annotations_layer)
         self.ui.viewer.layers.remove(self.contrast_layer)
-        self.ui.viewer.layers.remove(self.points_layer)
         self.atlas_layer = None
         self.annotations_layer = None
         self.contrast_layer = None
-        self.points_layer = None
         self._params = None
         self._condition = None
         self._anova_df = None
@@ -141,11 +142,13 @@ class AnalysisController(Controller):
     ) -> None:
         self._params = params
 
-    def plot_anova(self, anova_df: pd.DataFrame):
+    def show_anova(self):
+        assert self._anova_df is not None
+
         atlas = self.ui.project.atlas
         annotation = self.ui.project.atlas.annotation.numpy()
         annotation_anova = np.zeros_like(annotation)
-        for structure, row in anova_df[anova_df["reject"]].iterrows():
+        for structure, row in self._anova_df[self._anova_df["reject"]].iterrows():
             struct_id = atlas.brainglobe_atlas.structures[structure]["id"]
             struct_mask = annotation == struct_id
             annotation_anova[struct_mask] = row["F"]
@@ -155,19 +158,47 @@ class AnalysisController(Controller):
         self.contrast_layer.visible = True
         self.annotations_layer.visible = False
 
-    def plot_posthoc(self, posthoc_df: pd.DataFrame, contrast: str, pvalue: float):
+        self._show_mode = "anova"
+        self.widget.set_label()
+
+    def show_posthoc(self, contrast: str, pvalue: float):
+        assert self._posthoc_df is not None
+
         atlas = self.ui.project.atlas
         annotation = self.ui.project.atlas.annotation.numpy()
         annotation_anova = np.zeros_like(annotation)
-        for structure, row in posthoc_df[posthoc_df[contrast] <= pvalue].iterrows():
+        for structure, row in self._posthoc_df[
+            self._posthoc_df[contrast] <= pvalue
+        ].iterrows():
             struct_id = atlas.brainglobe_atlas.structures[structure]["id"]
             struct_mask = annotation == struct_id
-            annotation_anova[struct_mask] = -np.log(row[contrast])
+            tvalue = scipy.stats.norm.ppf(1 - row[contrast])
+            annotation_anova[struct_mask] = tvalue
         self.contrast_layer.data = annotation_anova
+        self.annotations_layer.data[annotation_anova == 0] = 0
         update_layer_contrast_limits(self.contrast_layer)
 
+        # TODO: insert this nicely
+        # import matplotlib as mpl
+
+        # figure = Figure(figsize=(1, 8))
+        # mpl_widget = FigureCanvas()
+        # ax = mpl_widget.figure.subplots()
+        # self.ui.viewer.window.add_dock_widget(mpl_widget)
+        # norm = mpl.colors.Normalize(
+        #     vmin=self.contrast_layer.contrast_limits[0],
+        #     vmax=self.contrast_layer.contrast_limits[1],
+        # )
+        # cbar = figure.colorbar(
+        #     mpl.cm.ScalarMappable(norm=norm, cmap="hot"),
+        #     ax=ax,
+        #     pad=0.05,
+        #     fraction=1,
+        # )
+        # ax.axis("off")
+        # cbar.set_label("t score")
+
         self.contrast_layer.visible = True
-        self.annotations_layer.visible = False
 
     def run_calculate_results_async(
         self,
@@ -186,7 +217,26 @@ class AnalysisController(Controller):
             progress_max_value=len(self.ui.project.subjects),
         )
 
-    def run_contrast_analysis(
+    def run_contrast_analysis_async(
+        self,
+        condition_col: str,
+        values_col: str,
+        min_group_size: int,
+        pvalue: float,
+        multiple_comparisons_method: str,
+    ) -> FunctionWorker:
+        self._condition = condition_col
+        self.ui.do_work_async(
+            self._run_contrast_analysis,
+            condition_col=condition_col,
+            values_col=values_col,
+            min_group_size=min_group_size,
+            pvalue=pvalue,
+            multiple_comparisons_method=multiple_comparisons_method,
+            return_callback=self.show_anova,
+        )
+
+    def _run_contrast_analysis(
         self,
         condition_col: str,
         values_col: str,
@@ -201,40 +251,40 @@ class AnalysisController(Controller):
             pvalue=pvalue,
             multiple_comparisons_method=multiple_comparisons_method,
         )
-        self._condition = condition_col
-        self.show_contrast("anova")
 
-    def run_pls_analysis(
+    def run_pls_analysis_async(
+        self,
+        condition_col: str,
+        values_col: str,
+        min_group_size: int,
+        alpha: float,
+        n_perm: int = 1000,
+        n_boot: int = 1000,
+    ):
+        self.ui.do_work_async(
+            self.ui.project.calculate_pls_analysis,
+            condition_col=condition_col,
+            values_col=values_col,
+            min_group_size=min_group_size,
+            alpha=alpha,
+            n_perm=n_perm,
+            n_boot=n_boot,
+        )
+
+    def run_network_analysis_async(
         self,
         condition_col: str,
         values_col: str,
         min_group_size: int,
         alpha: float,
     ):
-        self.ui.project.calculate_pls_analysis(
+        self.ui.do_work_async(
+            self.ui.project.calculate_network_graph,
             condition_col=condition_col,
             values_col=values_col,
             min_group_size=min_group_size,
             alpha=alpha,
         )
-
-    def show_contrast(
-        self,
-        mode: Literal["anova", "posthoc"],
-        contrast: str | None = None,
-        pvalue: float | None = None,
-    ):
-        if mode == "anova":
-            self.plot_anova(self._anova_df)
-        elif mode == "posthoc":
-            assert contrast is not None
-            assert pvalue is not None
-            self.plot_posthoc(self._posthoc_df, contrast=contrast, pvalue=pvalue)
-            self._contrast = contrast
-        else:
-            raise ValueError(f"Unknown mode {mode}")
-
-        self._show_mode = mode
 
     @property
     def current_condition(self) -> str | None:

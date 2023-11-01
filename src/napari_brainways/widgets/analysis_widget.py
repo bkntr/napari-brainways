@@ -1,9 +1,14 @@
+from typing import TYPE_CHECKING
+
 from magicgui.widgets import request_values
 from qtpy.QtWidgets import QLabel, QPushButton, QVBoxLayout, QWidget
 
+if TYPE_CHECKING:
+    from napari_brainways.controllers.analysis_controller import AnalysisController
+
 
 class AnalysisWidget(QWidget):
-    def __init__(self, controller):
+    def __init__(self, controller: "AnalysisController"):
         super().__init__()
         self.controller = controller
 
@@ -19,6 +24,9 @@ class AnalysisWidget(QWidget):
         pls_analysis_button = QPushButton("Run PLS analysis")
         pls_analysis_button.clicked.connect(self.on_run_pls_analysis_clicked)
 
+        network_analysis_button = QPushButton("Run network analysis")
+        network_analysis_button.clicked.connect(self.on_run_network_analysis_clicked)
+
         show_anova_button = QPushButton("Show ANOVA")
         show_anova_button.clicked.connect(self.on_show_anova_clicked)
 
@@ -30,6 +38,7 @@ class AnalysisWidget(QWidget):
         self.layout().addWidget(calculate_results_button)
         self.layout().addWidget(contrast_analysis_button)
         self.layout().addWidget(pls_analysis_button)
+        self.layout().addWidget(network_analysis_button)
         self.layout().addWidget(show_anova_button)
         self.layout().addWidget(show_posthoc_button)
 
@@ -127,14 +136,13 @@ class AnalysisWidget(QWidget):
         if values is None:
             return
 
-        self.controller.run_contrast_analysis(
+        self.controller.run_contrast_analysis_async(
             condition_col=values["condition_col"],
             values_col=values["values_col"],
             min_group_size=values["min_group_size"],
             pvalue=values["pvalue"],
             multiple_comparisons_method=values["multiple_comparisons_method"],
         )
-        self.set_label()
 
     def on_run_pls_analysis_clicked(self, _=None):
         conditions = self.controller.ui.project.settings.condition_names
@@ -174,7 +182,53 @@ class AnalysisWidget(QWidget):
         if values is None:
             return
 
-        self.controller.run_pls_analysis(
+        self.controller.run_pls_analysis_async(
+            condition_col=values["condition_col"],
+            values_col=values["values_col"],
+            min_group_size=values["min_group_size"],
+            alpha=values["alpha"],
+        )
+        self.set_label()
+
+    def on_run_network_analysis_clicked(self, _=None):
+        conditions = self.controller.ui.project.settings.condition_names
+        # cell_types = self.controller.ui.project.cell_types
+
+        values = request_values(
+            title="Run Network Analysis",
+            condition_col=dict(
+                value=conditions[0],
+                widget_type="ComboBox",
+                options=dict(choices=conditions),
+                annotation=str,
+                label="Condition",
+            ),
+            values_col=dict(
+                value="cells",
+                # widget_type="ComboBox",
+                # options=dict(choices=cell_types),
+                annotation=str,
+                label="Cell Type",
+            ),
+            min_group_size=dict(
+                value=3,
+                annotation=int,
+                label="Min Group Size",
+                options=dict(
+                    tooltip="Minimal number of animals to consider an area for contrast"
+                ),
+            ),
+            alpha=dict(
+                value=0.05,
+                annotation=float,
+                label="alpha",
+                options=dict(tooltip="alpha for plots"),
+            ),
+        )
+        if values is None:
+            return
+
+        self.controller.run_network_analysis_async(
             condition_col=values["condition_col"],
             values_col=values["values_col"],
             min_group_size=values["min_group_size"],
@@ -183,8 +237,7 @@ class AnalysisWidget(QWidget):
         self.set_label()
 
     def on_show_anova_clicked(self, _=None):
-        self.controller.show_contrast(mode="anova")
-        self.set_label()
+        self.controller.plot_anova()
 
     def on_show_posthoc_clicked(self, _=None):
         if self.controller.current_condition is None:
@@ -210,10 +263,9 @@ class AnalysisWidget(QWidget):
         if values is None:
             return
 
-        self.controller.show_contrast(
-            mode="posthoc", contrast=values["contrast"], pvalue=values["pvalue"]
+        self.controller.show_posthoc(
+            contrast=values["contrast"], pvalue=values["pvalue"]
         )
-        self.set_label()
 
     def set_label(self):
         if self.controller.current_show_mode is None:

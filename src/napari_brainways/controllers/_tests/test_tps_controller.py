@@ -71,6 +71,16 @@ def test_run_elastix_updates_ui(
     )
 
 
+def test_run_elastix_keeps_dtype(
+    app_on_tps: Tuple[BrainwaysUI, TpsController],
+    elastix_mock,
+):
+    app, controller = app_on_tps
+    controller.run_elastix_async()
+    assert type(controller._params.tps.points_src) is list
+    assert type(controller._params.tps.points_dst) is list
+
+
 @pytest.mark.parametrize("hemisphere", ["left", "right", "both"])
 def test_default_tps_params_uses_hemispheres(
     app_on_tps: Tuple[BrainwaysUI, TpsController],
