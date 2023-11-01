@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
  - Fix tensorflow version for StarDist
+ - Fix project unable to save after elastix
 
 ## [0.1.8.3]
 
