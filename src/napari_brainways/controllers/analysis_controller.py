@@ -9,8 +9,6 @@ import numpy as np
 import pandas as pd
 import scipy.stats
 from brainways.pipeline.brainways_params import BrainwaysParams
-from matplotlib.backends.backend_qt5agg import FigureCanvas
-from matplotlib.figure import Figure
 from napari.qt.threading import FunctionWorker
 from napari.utils.colormaps.colormap import Colormap
 
@@ -180,24 +178,25 @@ class AnalysisController(Controller):
         self.annotations_layer.data[annotation_anova == 0] = 0
         update_layer_contrast_limits(self.contrast_layer)
 
-        import matplotlib as mpl
+        # TODO: insert this nicely
+        # import matplotlib as mpl
 
-        figure = Figure(figsize=(1, 8))
-        mpl_widget = FigureCanvas()
-        ax = mpl_widget.figure.subplots()
-        self.ui.viewer.window.add_dock_widget(mpl_widget)
-        norm = mpl.colors.Normalize(
-            vmin=self.contrast_layer.contrast_limits[0],
-            vmax=self.contrast_layer.contrast_limits[1],
-        )
-        cbar = figure.colorbar(
-            mpl.cm.ScalarMappable(norm=norm, cmap="hot"),
-            ax=ax,
-            pad=0.05,
-            fraction=1,
-        )
-        ax.axis("off")
-        cbar.set_label("t score")
+        # figure = Figure(figsize=(1, 8))
+        # mpl_widget = FigureCanvas()
+        # ax = mpl_widget.figure.subplots()
+        # self.ui.viewer.window.add_dock_widget(mpl_widget)
+        # norm = mpl.colors.Normalize(
+        #     vmin=self.contrast_layer.contrast_limits[0],
+        #     vmax=self.contrast_layer.contrast_limits[1],
+        # )
+        # cbar = figure.colorbar(
+        #     mpl.cm.ScalarMappable(norm=norm, cmap="hot"),
+        #     ax=ax,
+        #     pad=0.05,
+        #     fraction=1,
+        # )
+        # ax.axis("off")
+        # cbar.set_label("t score")
 
         self.contrast_layer.visible = True
 
