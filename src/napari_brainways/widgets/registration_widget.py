@@ -1,12 +1,17 @@
-from typing import Callable, Dict, Tuple
+from typing import TYPE_CHECKING, Callable, Dict, Tuple
 
 from magicgui import magicgui
 from qtpy import QtCore, QtGui
 from qtpy.QtWidgets import QMessageBox, QPushButton, QStyle, QVBoxLayout, QWidget
 
+if TYPE_CHECKING:
+    from napari_brainways.controllers.registration_controller import (
+        RegistrationController,
+    )
+
 
 class RegistrationView(QWidget):
-    def __init__(self, controller):
+    def __init__(self, controller: "RegistrationController"):
         super().__init__()
 
         self.controller = controller

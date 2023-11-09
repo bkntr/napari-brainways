@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING, Any, Callable
 import napari.layers
 import numpy as np
 from brainways.pipeline.brainways_params import AtlasRegistrationParams, BrainwaysParams
-from brainways.utils._imports import BRAINWAYS_REG_MODEL_AVAILABLE
 from brainways.utils.image import brain_mask, nonzero_bounding_box
 
 from napari_brainways.controllers.base import Controller
@@ -149,11 +148,7 @@ class RegistrationController(Controller):
             self.show(params)
 
     def model_available(self) -> bool:
-        model_supports_atlas = (
-            self.ui.project.pipeline.atlas.brainglobe_atlas.atlas_name
-            == "whs_sd_rat_39um"
-        )
-        return BRAINWAYS_REG_MODEL_AVAILABLE and model_supports_atlas
+        return self.pipeline.atlas_registration.automatic_registration_available()
 
     def show(
         self,
