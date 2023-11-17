@@ -82,7 +82,8 @@ def app(
         Mock(side_effect=Exception("don't setup in tests")),
     )
     BrainwaysSetup.set_initialized()
-    app = BrainwaysUI(napari_viewer, async_disabled=True)
+    app = BrainwaysUI(napari_viewer)
+    app.async_disabled = True
     yield app
 
 
