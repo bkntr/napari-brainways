@@ -5,10 +5,12 @@ from pathlib import Path
 from typing import List, Tuple
 from unittest.mock import Mock, create_autospec
 
+import napari
 import numpy as np
 import pytest
 import torch
 from bg_atlasapi.structure_class import StructuresDict
+from brainways.pipeline.atlas_registration import AtlasRegistration
 from brainways.pipeline.brainways_params import (
     AffineTransform2DParams,
     AtlasRegistrationParams,
@@ -21,8 +23,9 @@ from brainways.project.info_classes import ProjectSettings, SliceInfo, SubjectIn
 from brainways.utils.atlas.brainways_atlas import AtlasSlice, BrainwaysAtlas
 from brainways.utils.image import ImageSizeHW
 from brainways.utils.io_utils import ImagePath
+from brainways.utils.setup import BrainwaysSetup
 from PIL import Image
-from pytest import fixture
+from pytest import MonkeyPatch, fixture
 from qtpy.QtWidgets import QApplication
 
 from napari_brainways.brainways_ui import BrainwaysUI
@@ -51,20 +54,35 @@ def setup_qt(qapp: QApplication):
 
 
 @fixture
-def napari_viewer(make_napari_viewer):
-    return make_napari_viewer()
+def napari_viewer(make_napari_viewer_proxy) -> napari.Viewer:
+    return make_napari_viewer_proxy()
 
 
 @fixture
 def app(
-    napari_viewer,
+    napari_viewer: napari.Viewer,
     test_data: Tuple[np.ndarray, AtlasSlice],
     mock_atlas: BrainwaysAtlas,
-    monkeypatch,
+    monkeypatch: MonkeyPatch,
 ) -> BrainwaysUI:
     monkeypatch.setattr(BrainwaysAtlas, "load", Mock(return_value=mock_atlas))
-    app = BrainwaysUI(napari_viewer)
-    app.async_disabled = True
+    monkeypatch.setattr(
+        AtlasRegistration,
+        "download_model",
+        Mock(side_effect=Exception("don't download model in tests")),
+    )
+    monkeypatch.setattr(
+        AtlasRegistration,
+        "trained_model_available",
+        Mock(return_value=False),
+    )
+    monkeypatch.setattr(
+        BrainwaysSetup,
+        "run",
+        Mock(side_effect=Exception("don't setup in tests")),
+    )
+    BrainwaysSetup.set_initialized()
+    app = BrainwaysUI(napari_viewer, async_disabled=True)
     yield app
 
 
@@ -144,9 +162,11 @@ def test_image_size(test_data: Tuple[np.ndarray, AtlasSlice]) -> ImageSizeHW:
 
 
 @pytest.fixture
-def mock_image_path(test_data: Tuple[np.ndarray, AtlasSlice], tmpdir) -> ImagePath:
+def mock_image_path(
+    test_data: Tuple[np.ndarray, AtlasSlice], tmp_path: Path
+) -> ImagePath:
     image, _ = test_data
-    image_path = ImagePath(str(tmpdir / "image.jpg"), scene=0)
+    image_path = ImagePath(str(tmp_path / "image.jpg"), scene=0)
     Image.fromarray(image).save(image_path.filename)
     return image_path
 
@@ -202,11 +222,11 @@ def mock_project_settings() -> ProjectSettings:
 
 @pytest.fixture
 def mock_project(
-    tmpdir,
+    tmp_path: Path,
     mock_project_settings: ProjectSettings,
     mock_subject_documents: List[SliceInfo],
 ) -> BrainwaysProject:
-    project_path = Path(tmpdir) / "project/project.bwp"
+    project_path = tmp_path / "project/project.bwp"
     project_path.parent.mkdir()
     project = BrainwaysProject.create(
         project_path, settings=mock_project_settings, lazy_init=True
