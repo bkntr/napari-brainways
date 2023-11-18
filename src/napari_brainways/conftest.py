@@ -23,6 +23,8 @@ from brainways.project.info_classes import ProjectSettings, SliceInfo, SubjectIn
 from brainways.utils.atlas.brainways_atlas import AtlasSlice, BrainwaysAtlas
 from brainways.utils.image import ImageSizeHW
 from brainways.utils.io_utils import ImagePath
+from brainways.utils.paths import get_brainways_dir
+from brainways.utils.setup import BrainwaysSetup
 from PIL import Image
 from pytest import MonkeyPatch, fixture
 from qtpy.QtWidgets import QApplication
@@ -75,8 +77,14 @@ def app(
         "trained_model_available",
         Mock(return_value=False),
     )
-    app = BrainwaysUI(napari_viewer)
-    app.async_disabled = True
+    monkeypatch.setattr(
+        BrainwaysSetup,
+        "run",
+        Mock(side_effect=Exception("don't setup in tests")),
+    )
+    get_brainways_dir()  # TODO: remove after brainways 0.10.1
+    BrainwaysSetup.set_initialized()
+    app = BrainwaysUI(napari_viewer, async_disabled=True)
     yield app
 
 

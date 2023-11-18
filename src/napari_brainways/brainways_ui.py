@@ -14,8 +14,11 @@ from brainways.project.info_classes import SliceInfo
 from brainways.utils.cell_detection_importer.cell_detection_importer import (
     CellDetectionImporter,
 )
+from brainways.utils.paths import get_brainways_dir
+from brainways.utils.setup import BrainwaysSetup
 from napari.qt.threading import FunctionWorker, GeneratorWorker, create_worker
-from qtpy.QtWidgets import QVBoxLayout, QWidget
+from qtpy.QtCore import Qt, Signal
+from qtpy.QtWidgets import QProgressDialog, QVBoxLayout, QWidget
 
 from napari_brainways.controllers.affine_2d_controller import Affine2DController
 from napari_brainways.controllers.analysis_controller import AnalysisController
@@ -32,10 +35,13 @@ from napari_brainways.widgets.workflow_widget import WorkflowView
 
 
 class BrainwaysUI(QWidget):
-    def __init__(self, napari_viewer: napari.Viewer):
+    progress = Signal(object)
+
+    def __init__(self, napari_viewer: napari.Viewer, async_disabled: bool = False):
         super().__init__()
 
         self.viewer = napari_viewer
+        self.async_disabled = async_disabled
 
         self.registration_controller = RegistrationController(self)
         self.affine_2d_controller = Affine2DController(self)
@@ -63,8 +69,35 @@ class BrainwaysUI(QWidget):
         self.widget = WorkflowView(self, steps=self.steps)
 
         self._set_layout()
+        get_brainways_dir()  # TODO: remove after brainways 0.10.1
+        self._setup_async()
 
-        self.async_disabled = False
+    def _setup_async(self):
+        if not BrainwaysSetup.is_first_launch():
+            return
+
+        progress_dialog = QProgressDialog("First time setup...", "Cancel", 0, 0, self)
+        progress_dialog.setModal(True)
+        progress_dialog.setWindowTitle("First time setup...")
+        progress_dialog.setCancelButton(None)
+        progress_dialog.setWindowFlag(Qt.WindowType.CustomizeWindowHint)
+        progress_dialog.setWindowFlag(~Qt.WindowType.WindowCloseButtonHint)
+        progress_dialog.show()
+
+        def _progress_callback(desc: str):
+            progress_dialog.setLabelText(desc)
+
+        self.progress.connect(_progress_callback)
+
+        def _return_callback():
+            progress_dialog.close()
+            self.progress.disconnect(_progress_callback)
+
+        setup = BrainwaysSetup(
+            atlas_names=["whs_sd_rat_39um", "allen_mouse_25um"],
+            progress_callback=lambda desc: self.progress.emit(desc),
+        )
+        self.do_work_async(setup.run, return_callback=_return_callback)
 
     def _set_layout(self):
         layout = QVBoxLayout()

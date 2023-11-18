@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 from brainways.pipeline.brainways_params import BrainwaysParams
 from brainways.pipeline.brainways_pipeline import BrainwaysPipeline
+from qtpy.QtWidgets import QWidget
 
 if TYPE_CHECKING:
     from napari_brainways.brainways_ui import BrainwaysUI
@@ -14,7 +15,7 @@ if TYPE_CHECKING:
 class Controller(ABC):
     def __init__(self, ui: BrainwaysUI):
         self.ui = ui
-        self.widget = None
+        self.widget: Optional[QWidget] = None
         self._is_open = False
 
     @abstractmethod
