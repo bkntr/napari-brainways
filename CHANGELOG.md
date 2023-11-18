@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.10]
 ### Added
  - First use setup
+ - Download registration model from huggingface
 
 ## [0.1.9]
 ### Added
