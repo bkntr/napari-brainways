@@ -14,6 +14,7 @@ from brainways.project.info_classes import SliceInfo
 from brainways.utils.cell_detection_importer.cell_detection_importer import (
     CellDetectionImporter,
 )
+from brainways.utils.paths import get_brainways_dir
 from brainways.utils.setup import BrainwaysSetup
 from napari.qt.threading import FunctionWorker, GeneratorWorker, create_worker
 from qtpy.QtCore import Qt, Signal
@@ -68,6 +69,7 @@ class BrainwaysUI(QWidget):
         self.widget = WorkflowView(self, steps=self.steps)
 
         self._set_layout()
+        get_brainways_dir()  # TODO: remove after brainways 0.10.1
         self._setup_async()
 
     def _setup_async(self):
