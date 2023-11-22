@@ -26,7 +26,7 @@ https://napari.org/plugins/index.html
 Brainways is in a very initial development stage, documentation and basic usage examples will be provided soon. Stay tuned!
 
 ## Preprint
-Check out our biorxiv preprint: https://www.biorxiv.org/content/10.1101/2023.05.25.542252v1
+Check out our biorxiv preprint: https://www.biorxiv.org/content/10.1101/2023.05.25.542252
 
 ## Installation
 
@@ -40,6 +40,11 @@ To install latest development version :
 
     pip install git+https://github.com/bkntr/napari-brainways.git
 
+## Usage
+
+To use brainways, run the following command in the python environment where you installed `napari-brainways`:
+
+    napari -w napari-brainways
 
 ## Contributing
 
