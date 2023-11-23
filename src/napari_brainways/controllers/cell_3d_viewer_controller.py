@@ -101,7 +101,7 @@ class Cell3DViewerController(Controller):
 
         self.ui.viewer.layers.remove(self.points_layer)
         self.points_layer = self.ui.viewer.add_points(
-            size=1, ndim=3, name="Detected Cells"
+            size=2, ndim=3, name="Detected Cells"
         )
 
         subject = self.ui.current_subject
@@ -116,6 +116,10 @@ class Cell3DViewerController(Controller):
             self.points_layer.selected_data = set()
         else:
             self.points_layer.data = []
+
+        # TODO: points color not updating in napari 0.4.18, this is a workaround
+        self.points_layer.visible = False
+        self.points_layer.visible = True
 
         self.ui.viewer.reset_view()
 
@@ -134,7 +138,7 @@ class Cell3DViewerController(Controller):
 
         self.ui.viewer.layers.remove(self.points_layer)
         self.points_layer = self.ui.viewer.add_points(
-            size=max(image.shape) * 0.005, ndim=2, name="Detected Cells"
+            size=max(image.shape) * 0.004, ndim=2, name="Detected Cells"
         )
 
         subject = self.ui.current_subject
