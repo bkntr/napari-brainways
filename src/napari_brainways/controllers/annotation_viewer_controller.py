@@ -49,18 +49,26 @@ class AnnotationViewerController(Controller):
         self.annotations_layer = self.ui.viewer.add_labels(
             np.zeros((10, 10), np.int32), name="Annotations"
         )
+        self.input_layer.mouse_move_callbacks.append(self.on_mouse_move)
         self.annotations_layer.mouse_move_callbacks.append(self.on_mouse_move)
+        self.annotations_layer.contour = 1
+
+        self.ui.viewer.text_overlay.visible = True
+        self.ui.viewer.text_overlay.font_size = 16
+        self.ui.viewer.text_overlay.color = (0.0, 0.8, 0.0, 1.0)
+        self.ui.viewer.text_overlay.position = "top_center"
+
         self._is_open = True
 
     def on_mouse_move(self, _layer, event):
         struct_id = self.annotations_layer.get_value(event.position, world=True)
+        struct_name = ""
         if struct_id and struct_id in self.pipeline.atlas.brainglobe_atlas.structures:
             struct_name = self.pipeline.atlas.brainglobe_atlas.structures[struct_id][
                 "name"
             ]
-        else:
-            struct_name = ""
-        _layer.help = struct_name
+
+        self.ui.viewer.text_overlay.text = struct_name
 
     def close(self) -> None:
         self.ui.viewer.layers.remove(self.input_layer)

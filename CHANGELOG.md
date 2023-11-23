@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
  - First use setup
  - Download registration model from huggingface
+ - Annotation Viewer controller: add nice text overlay showing the structure under mouse cursor
+
+### Fixed
+ - Analysis widget: ANOVA shows F value instead of incorrect p value
+ - Analysis widget: Show ANOVA button now works
+ - Cell Viewer controller: fix cell colors
 
 ## [0.1.9]
 ### Added

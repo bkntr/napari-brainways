@@ -114,8 +114,11 @@ class AnalysisController(Controller):
         if self.current_show_mode:
             tvalue = self.contrast_layer.get_value(event.position, world=True)
             if tvalue:
-                pvalue = 1 - scipy.stats.norm.cdf(tvalue).round(5)
-                string += f" (p={pvalue:.5})"
+                if self._show_mode == "anova":
+                    string += f" (F={tvalue:.2f})"
+                else:
+                    pvalue = 1 - scipy.stats.norm.cdf(tvalue).round(5)
+                    string += f" (p={pvalue:.5})"
 
         self.ui.viewer.text_overlay.text = string
 
@@ -198,6 +201,7 @@ class AnalysisController(Controller):
         # ax.axis("off")
         # cbar.set_label("t score")
 
+        self._show_mode = "posthoc"
         self.contrast_layer.visible = True
 
     def run_calculate_results_async(
