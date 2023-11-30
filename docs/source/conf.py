@@ -8,8 +8,8 @@ project = "napari-brainways"
 copyright = "2023, Ben Kantor"
 author = "Ben Kantor"
 
-release = importlib_version("brainways_reg_model")
-version = importlib_version("brainways_reg_model")
+release = importlib_version("napari_brainways")
+version = importlib_version("napari_brainways")
 
 # -- General configuration
 
