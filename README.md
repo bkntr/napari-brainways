@@ -33,7 +33,7 @@ pip install napari-brainways
 napari -w napari-brainways
 ```
 
-Follow our [getting started guide](getting_started.md) for more details.
+Follow our [getting started guide](https://napari-brainways.readthedocs.io/en/latest/getting_started/) for more details.
 
 ## How it works
 
