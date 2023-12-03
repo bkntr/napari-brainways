@@ -15,7 +15,7 @@
 
 Brainways is an AI-based tool for automated registration, quantification and generation of brain-wide activity networks based on fluorescence in coronal slices.
 
-![Brainways UI](docs/assets/brainways-ui.gif)
+![Brainways UI](assets/brainways-ui.gif)
 
 <!-- markdownlint-disable MD026 -->
 ## Why Brainways?

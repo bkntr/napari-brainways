@@ -29,7 +29,7 @@ class Affine2DController(Controller):
 
     @property
     def name(self) -> str:
-        return "2D Registration"
+        return "Rigid Registration"
 
     def register_key_bindings(self):
         key_bindings = {

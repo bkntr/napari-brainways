@@ -145,7 +145,7 @@ class WorkflowView(QWidget):
             condition_names=dict(
                 value="condition1;condition2",
                 annotation=str,
-                label="Conditions",
+                label="Condition names",
             ),
         )
         if user_values is None:
@@ -166,7 +166,7 @@ class WorkflowView(QWidget):
             condition_names=dict(
                 value=";".join(settings.condition_names),
                 annotation=str,
-                label="Conditions",
+                label="Condition names",
             ),
         )
         if user_values is None:

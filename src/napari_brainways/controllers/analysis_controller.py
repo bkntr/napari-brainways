@@ -55,6 +55,11 @@ class AnalysisController(Controller):
         if self._is_open:
             return
 
+        # remove the sample project helper layer
+        for layer in self.ui.viewer.layers:
+            if "__brainways__" in layer.metadata:
+                self.ui.viewer.layers.remove(layer)
+
         self.atlas_layer = self.ui.viewer.add_image(
             self.ui.project.atlas.reference.numpy(),
             name="Atlas",
