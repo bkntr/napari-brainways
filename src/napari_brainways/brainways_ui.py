@@ -72,6 +72,10 @@ class BrainwaysUI(QWidget):
         get_brainways_dir()  # TODO: remove after brainways 0.10.1
         self._setup_async()
 
+        self.viewer.layers.events.inserted.connect(
+            self._on_layer_inserted, position="last"
+        )
+
     def _setup_async(self):
         if not BrainwaysSetup.is_first_launch():
             return
@@ -98,6 +102,13 @@ class BrainwaysUI(QWidget):
             progress_callback=lambda desc: self.progress.emit(desc),
         )
         self.do_work_async(setup.run, return_callback=_return_callback)
+
+    def _on_layer_inserted(self, event):
+        layer = event.value
+        if layer is None or "__brainways__" not in layer.metadata:
+            return
+        sample_project_path = Path(layer.metadata["sample_project_path"])
+        self.open_project_async(sample_project_path)
 
     def _set_layout(self):
         layout = QVBoxLayout()

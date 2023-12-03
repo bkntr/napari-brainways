@@ -237,7 +237,7 @@ class AnalysisWidget(QWidget):
         self.set_label()
 
     def on_show_anova_clicked(self, _=None):
-        self.controller.plot_anova()
+        self.controller.show_anova()
 
     def on_show_posthoc_clicked(self, _=None):
         if self.controller.current_condition is None:

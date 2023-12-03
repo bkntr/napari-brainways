@@ -15,7 +15,7 @@
 
 Brainways is an AI-based tool for automated registration, quantification and generation of brain-wide activity networks based on fluorescence in coronal slices.
 
-![Brainways UI](docs/assets/brainways-ui.gif)
+![Brainways UI](assets/brainways-ui.gif)
 
 <!-- markdownlint-disable MD026 -->
 ## Why Brainways?
@@ -33,7 +33,7 @@ pip install napari-brainways
 napari -w napari-brainways
 ```
 
-Follow our [getting started guide](https://napari-brainways.readthedocs.io/en/latest/getting_started/) for more details.
+Follow our [getting started guide](getting_started.md) for more details.
 
 ## How it works
 

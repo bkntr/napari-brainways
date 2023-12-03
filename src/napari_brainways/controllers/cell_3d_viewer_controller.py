@@ -101,7 +101,7 @@ class Cell3DViewerController(Controller):
 
         self.ui.viewer.layers.remove(self.points_layer)
         self.points_layer = self.ui.viewer.add_points(
-            size=1, ndim=3, name="Detected Cells"
+            size=2, ndim=3, name="Detected Cells"
         )
 
         subject = self.ui.current_subject
@@ -117,6 +117,10 @@ class Cell3DViewerController(Controller):
         else:
             self.points_layer.data = []
 
+        # TODO: points color not updating in napari 0.4.18, this is a workaround
+        self.points_layer.visible = False
+        self.points_layer.visible = True
+
         self.ui.viewer.reset_view()
 
     def show_2d(self, image: np.ndarray | None = None, from_ui: bool = False):
@@ -126,13 +130,15 @@ class Cell3DViewerController(Controller):
         if self.atlas_layer is not None:
             self.ui.viewer.layers.remove(self.atlas_layer)
             self.atlas_layer = None
+        if self.input_layer is not None:
+            self.ui.viewer.layers.remove(self.input_layer)
         self.input_layer = self.ui.viewer.add_image(image, name="Image")
         update_layer_contrast_limits(self.input_layer)
         self.ui.viewer.dims.ndisplay = 2
 
         self.ui.viewer.layers.remove(self.points_layer)
         self.points_layer = self.ui.viewer.add_points(
-            size=max(image.shape) * 0.002, ndim=2, name="Detected Cells"
+            size=max(image.shape) * 0.004, ndim=2, name="Detected Cells"
         )
 
         subject = self.ui.current_subject
@@ -155,6 +161,10 @@ class Cell3DViewerController(Controller):
             self.points_layer.selected_data = set()
         else:
             self.points_layer.data = []
+
+        # TODO: points color not updating in napari 0.4.18, this is a workaround
+        self.points_layer.visible = False
+        self.points_layer.visible = True
 
         self.ui.viewer.reset_view()
 
