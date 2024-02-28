@@ -267,6 +267,7 @@ class AnalysisController(Controller):
         values_col: str,
         min_group_size: int,
         alpha: float,
+        conditions: Optional[List[str]] = None,
         n_perm: int = 1000,
         n_boot: int = 1000,
     ):
@@ -276,6 +277,7 @@ class AnalysisController(Controller):
             values_col=values_col,
             min_group_size=min_group_size,
             alpha=alpha,
+            conditions=conditions,
             n_perm=n_perm,
             n_boot=n_boot,
         )

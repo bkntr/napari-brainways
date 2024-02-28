@@ -155,7 +155,7 @@ class AnalysisWidget(QWidget):
                 widget_type="ComboBox",
                 options=dict(choices=conditions),
                 annotation=str,
-                label="Condition",
+                label="Condition Type",
             ),
             values_col=dict(
                 value="cells",
@@ -178,15 +178,28 @@ class AnalysisWidget(QWidget):
                 label="alpha",
                 options=dict(tooltip="alpha for plots"),
             ),
+            conditions=dict(
+                annotation=str,
+                label="Filter Conditions",
+                options=dict(
+                    tooltip=(
+                        "Filter conditions (comma separated, e.g."
+                        " 'condition_a,condition_b'). Leave empty to consider all"
+                        " conditions"
+                    )
+                ),
+            ),
         )
         if values is None:
             return
 
+        conditions = values["conditions"].split(",") if values["conditions"] else None
         self.controller.run_pls_analysis_async(
             condition_col=values["condition_col"],
             values_col=values["values_col"],
             min_group_size=values["min_group_size"],
             alpha=values["alpha"],
+            conditions=conditions,
         )
         self.set_label()
 

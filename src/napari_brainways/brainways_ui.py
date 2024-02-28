@@ -480,9 +480,6 @@ class BrainwaysUI(QWidget):
         error_callback: Optional[Callable] = None,
         **kwargs,
     ):
-        return_callback = return_callback or self._on_work_returned
-        yield_callback = yield_callback or self._on_work_yielded
-        error_callback = error_callback or self._on_work_error
         try:
             if inspect.isgeneratorfunction(function):
                 gen = function(**kwargs)
@@ -490,24 +487,38 @@ class BrainwaysUI(QWidget):
                     while True:
                         item = next(gen)
                         if item is None:
-                            yield_callback()
+                            self._on_work_yielded()
+                            if yield_callback is not None:
+                                yield_callback()
                         elif isinstance(item, (list, tuple)):
-                            yield_callback(*item)
+                            self._on_work_yielded(*item)
+                            if yield_callback is not None:
+                                yield_callback(*item)
                         else:
-                            yield_callback(item)
+                            self._on_work_yielded(item)
+                            if yield_callback is not None:
+                                yield_callback(item)
                 except StopIteration as e:
                     result = e.value
             else:
                 result = function(**kwargs)
 
             if result is None:
-                return_callback()
+                self._on_work_returned()
+                if return_callback is not None:
+                    return_callback()
             elif isinstance(result, (list, tuple)):
-                return_callback(*result)
+                self._on_work_returned(*result)
+                if return_callback is not None:
+                    return_callback(*result)
             else:
-                return_callback(result)
+                self._on_work_returned(result)
+                if return_callback is not None:
+                    return_callback(result)
         except Exception:
-            error_callback()
+            self._on_work_error()
+            if error_callback is not None:
+                error_callback()
             raise
 
     def _on_work_returned(self, **kwargs):
