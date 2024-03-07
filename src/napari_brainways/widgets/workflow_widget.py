@@ -53,6 +53,7 @@ class WorkflowView(QWidget):
         self.project_actions_section = ProjectActionsSection(
             import_cells=self.on_import_cells_clicked,
             run_cell_detector=self.on_run_cell_detector_clicked,
+            view_brain_structure=self.on_view_brain_structure_clicked,
         )
         self.subject_navigation = SubjectControls(
             select_callback=self.select_subject,
@@ -305,6 +306,41 @@ class WorkflowView(QWidget):
     def on_run_cell_detector_clicked(self, _=None):
         self.controller.run_cell_detector_async()
 
+    def on_view_brain_structure_clicked(self, _=None):
+        values = request_values(
+            title="View Brain Region",
+            structure_names=dict(
+                value="NAc-c,NAc-sh",
+                annotation=str,
+                label="Structure Name(s)",
+            ),
+            condition_type=dict(
+                value="",
+                widget_type="ComboBox",
+                options=dict(
+                    choices=[""] + self.controller.project.settings.condition_names
+                ),
+                annotation=str,
+                label="Condition Type",
+            ),
+            condition_value=dict(
+                value="",
+                annotation=str,
+                label="Condition Value",
+            ),
+        )
+        if values is None:
+            return
+        if values["condition_type"] and not values["condition_value"]:
+            raise ValueError(
+                "If Condition Type is supplied, must also supply Condition Value"
+            )
+        self.controller.view_brain_structure_async(
+            structure_names=values["structure_names"].split(","),
+            condition_type=values["condition_type"],
+            condition_value=values["condition_value"],
+        )
+
     def set_subject_index(self, subject_index: int):
         self.subject_navigation.value = subject_index
 
@@ -411,16 +447,23 @@ class ProjectActionsSection(TitledGroupBox):
         self,
         import_cells: Callable,
         run_cell_detector: Callable,
+        view_brain_structure: Callable,
     ):
         self.import_cells = QPushButton("Import Cell Detections")
         self.run_cell_detector = QPushButton("Run Cell Detector")
+        self.view_brain_structure = QPushButton("View Brain Region(s)")
 
         self.import_cells.clicked.connect(import_cells)
         self.run_cell_detector.clicked.connect(run_cell_detector)
+        self.view_brain_structure.clicked.connect(view_brain_structure)
 
         super().__init__(
             title="<b>Project Actions:</b>",
-            widgets=[self.run_cell_detector, self.import_cells],
+            widgets=[
+                self.run_cell_detector,
+                self.import_cells,
+                self.view_brain_structure,
+            ],
         )
 
 

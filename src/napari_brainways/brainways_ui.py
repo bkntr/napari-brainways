@@ -3,7 +3,7 @@ from __future__ import annotations
 import inspect
 from dataclasses import replace
 from pathlib import Path
-from typing import Callable, Optional, Tuple
+from typing import Callable, List, Optional, Tuple
 
 import napari
 import numpy as np
@@ -417,6 +417,28 @@ class BrainwaysUI(QWidget):
             self.project.run_cell_detector_iter,
             progress_label="Running Cell Detector...",
             progress_max_value=self.project.n_valid_images,
+        )
+
+    def view_brain_structure_async(
+        self,
+        structure_names: List[str],
+        condition_type: Optional[str] = None,
+        condition_value: Optional[str] = None,
+        num_subjects: Optional[int] = None,
+    ) -> FunctionWorker:
+        # return self.do_work_async(
+        #     self.project.view_brain_structure,
+        #     progress_label="Viewing Brain Structure...",
+        #     structure_names=structure_names,
+        #     condition_type=condition_type,
+        #     condition_value=condition_value,
+        #     num_subjects=num_subjects,
+        # )
+        self.project.view_brain_structure(
+            structure_names=structure_names,
+            condition_type=condition_type,
+            condition_value=condition_value,
+            num_subjects=num_subjects,
         )
 
     def show_cells_view(self):
