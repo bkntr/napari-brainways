@@ -22,7 +22,7 @@ This will install the brainways GUI along with all of its dependencies. After th
 Launch brainways using the following command (if you installed brainways in a virtual environment, execute this command inside the virtual environment):
 
 ```bash
-napari -w napari-brainways
+brainways ui
 ```
 
 The first time Brainways is launched, it will automatically download the following dependencies:

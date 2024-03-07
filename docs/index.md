@@ -30,7 +30,7 @@ To install and run brainways, run the following in your python environment:
 
 ```bash
 pip install napari-brainways
-napari -w napari-brainways
+brainways ui
 ```
 
 Follow our [getting started guide](getting_started.md) for more details.
