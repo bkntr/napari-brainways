@@ -328,6 +328,16 @@ class WorkflowView(QWidget):
                 annotation=str,
                 label="Condition Value",
             ),
+            display_channel=dict(
+                value="",
+                annotation=str,
+                label="Display Channel",
+            ),
+            filter_cell_type=dict(
+                value="",
+                annotation=str,
+                label="Filter Cell Type",
+            ),
         )
         if values is None:
             return
@@ -335,10 +345,16 @@ class WorkflowView(QWidget):
             raise ValueError(
                 "If Condition Type is supplied, must also supply Condition Value"
             )
+        if values["display_channel"]:
+            values["display_channel"] = int(values["display_channel"])
+        else:
+            values["display_channel"] = None
         self.controller.view_brain_structure_async(
             structure_names=values["structure_names"].split(","),
             condition_type=values["condition_type"],
             condition_value=values["condition_value"],
+            display_channel=values["display_channel"],
+            filter_cell_type=values["filter_cell_type"],
         )
 
     def set_subject_index(self, subject_index: int):
