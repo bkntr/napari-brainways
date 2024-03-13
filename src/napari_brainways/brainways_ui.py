@@ -3,7 +3,7 @@ from __future__ import annotations
 import inspect
 from dataclasses import replace
 from pathlib import Path
-from typing import Callable, Optional, Tuple
+from typing import Callable, List, Optional, Tuple
 
 import napari
 import numpy as np
@@ -419,6 +419,32 @@ class BrainwaysUI(QWidget):
             progress_max_value=self.project.n_valid_images,
         )
 
+    def view_brain_structure_async(
+        self,
+        structure_names: List[str],
+        condition_type: Optional[str] = None,
+        condition_value: Optional[str] = None,
+        num_subjects: Optional[int] = None,
+        display_channel: Optional[int] = None,
+        filter_cell_type: Optional[str] = None,
+    ) -> FunctionWorker:
+        # return self.do_work_async(
+        #     self.project.view_brain_structure,
+        #     progress_label="Viewing Brain Structure...",
+        #     structure_names=structure_names,
+        #     condition_type=condition_type,
+        #     condition_value=condition_value,
+        #     num_subjects=num_subjects,
+        # )
+        self.project.view_brain_structure(
+            structure_names=structure_names,
+            condition_type=condition_type,
+            condition_value=condition_value,
+            num_subjects=num_subjects,
+            display_channel=display_channel,
+            filter_cell_type=filter_cell_type,
+        )
+
     def show_cells_view(self):
         self.save_subject()
         self.current_step.close()
@@ -521,7 +547,7 @@ class BrainwaysUI(QWidget):
                 error_callback()
             raise
 
-    def _on_work_returned(self, **kwargs):
+    def _on_work_returned(self, *args, **kwargs):
         self.widget.hide_progress_bar()
 
     def _on_work_yielded(
@@ -529,7 +555,7 @@ class BrainwaysUI(QWidget):
     ):
         self.widget.update_progress_bar(value=value, text=text)
 
-    def _on_work_error(self, **kwargs):
+    def _on_work_error(self, *args, **kwargs):
         self.widget.hide_progress_bar()
 
     @property

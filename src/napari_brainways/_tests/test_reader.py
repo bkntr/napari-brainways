@@ -1,7 +1,7 @@
 # # tmp_path is a pytest fixture
 # def test_reader(napari_viewer: Viewer, monkeypatch):
 #     monkeypatch.setattr(BrainwaysUI, "open_project_async", Mock())
-#     package = Path(importlib_resources.files("napari_brainways"))
+#     package = Path(importlib_resources.files("napari-brainways"))
 #     sample_data_dir = str(package / "resources/sample_data/")
 
 #     # try to read it back in
